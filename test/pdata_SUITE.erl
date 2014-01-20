@@ -12,6 +12,7 @@
 -export([flat_parallel/1]).
 -export([mixed/1]).
 -export([async/1]).
+-export([deep_exec/1]).
 -export([basic_memoize/1]).
 -export([complex_memoize/1]).
 -export([spawn_worker/1]).
@@ -19,7 +20,7 @@
 %% ct.
 
 all() ->
-  [series, flat_parallel, mixed, async, basic_memoize, complex_memoize, spawn_worker].
+  [series, flat_parallel, mixed, async, deep_exec, basic_memoize, complex_memoize, spawn_worker].
 
 init_per_suite(Config) ->
   Config.
@@ -75,6 +76,24 @@ mixed(_) ->
     (mod, fun3, [Val3, Val4], _Context, _Sender) ->
       {ok, Val3 + Val4};
     (mod, fun4, [Val], _Context, _Sender) ->
+      {ok, Val}
+  end, Context),
+  ok.
+
+deep_exec(_) ->
+  Graph = pdata:compile([
+    {1, mod, fun1, [{1, {{'$exec', 2}, {{'$exec', 3}, [{'$exec', 4}, {{'$exec', 5}, {'$exec', 6}}]}}}]},
+    {2, mod, fun2, [2]},
+    {3, mod, fun2, [3]},
+    {4, mod, fun2, [4]},
+    {5, mod, fun2, [5]},
+    {6, mod, fun2, [6]}
+  ], 1),
+  Context = [],
+  {ok, {1, 2, 3, 4, 5, 6}} = pdata:execute(Graph, fun
+    (mod, fun1, [{V1, {V2, {V3, [V4, {V5, V6}]}}}], _Context, _Sender) ->
+      {ok, {V1, V2, V3, V4, V5, V6}};
+    (mod, fun2, [Val], _Context, _Sender) ->
       {ok, Val}
   end, Context),
   ok.
