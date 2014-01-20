@@ -16,11 +16,12 @@
 -export([basic_memoize/1]).
 -export([complex_memoize/1]).
 -export([spawn_worker/1]).
+-export([binary_tree/1]).
 
 %% ct.
 
 all() ->
-  [series, flat_parallel, mixed, async, deep_exec, basic_memoize, complex_memoize, spawn_worker].
+  [series, flat_parallel, mixed, async, deep_exec, basic_memoize, complex_memoize, spawn_worker, binary_tree].
 
 init_per_suite(Config) ->
   Config.
@@ -234,5 +235,59 @@ spawn_worker(_) ->
     (mod, _, [Val], _Context, _Sender) ->
       timer:sleep(SleepTime),
       {ok, Val}
+  end, Context),
+  ok.
+
+%% P1a
+%% * mod:fun15(1)
+%% * mod:fun14(1)
+%% P1b
+%% * mod:fun12(1)
+%% * mod:fun11(1)
+%% P1c
+%% * mod:fun8(1)
+%% * mod:fun7(1)
+%% P1d
+%% * mod:fun4(1)
+%% * mod:fun5(1)
+%% P2a
+%% * mod:fun13(value(14), value(15))
+%% P2b
+%% * mod:fun10(value(11), value(11))
+%% P2c
+%% * mod:fun6(value(7), value(8))
+%% P2d
+%% * mod:fun3(value(4), value(5))
+%% P3a
+%% * mod:fun9(value(10), value(13))
+%% P3b
+%% * mod:fun2(value(3), value(6))
+%% P4
+%% * mod:fun1(value(2), value(9))
+binary_tree(_) ->
+  Graph = pdata:compile([
+    {1, mod, fun1, [{'$exec', 2}, {'$exec', 9}]},
+    {2, mod, fun2, [{'$exec', 3}, {'$exec', 6}]},
+    {3, mod, fun3, [{'$exec', 4}, {'$exec', 5}]},
+    {4, mod, fun4, [1]},
+    {5, mod, fun5, [1]},
+    {6, mod, fun6, [{'$exec', 7}, {'$exec', 8}]},
+    {7, mod, fun7, [1]},
+    {8, mod, fun8, [1]},
+    {9, mod, fun9, [{'$exec', 10}, {'$exec', 13}]},
+    {10, mod, fun10, [{'$exec', 11}, {'$exec', 12}]},
+    {11, mod, fun11, [1]},
+    {12, mod, fun12, [1]},
+    {13, mod, fun13, [{'$exec', 14}, {'$exec', 15}]},
+    {14, mod, fun14, [1]},
+    {15, mod, fun15, [1]}
+  ], 1),
+  Context = [],
+
+  {ok, 16} = pdata:execute(Graph, fun
+    (mod, _, [Value, Value], _Context, _Sender) ->
+      {ok, Value + Value};
+    (mod, _, [Value], _Context, _Sender) ->
+      {ok, Value}
   end, Context),
   ok.
