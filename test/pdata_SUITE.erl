@@ -30,6 +30,14 @@ end_per_suite(_) ->
 
 %% pdata.
 
+%% P1
+%% * mod:fun4(1)
+%% P2
+%% * mod:fun3(value(4))
+%% P3
+%% * mod:fun2(value(3))
+%% P4
+%% * mod:fun1(value(2))
 series(_) ->
   Graph = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}]},
@@ -44,6 +52,12 @@ series(_) ->
   end, Context),
   ok.
 
+%% P1
+%% * mod:fun2(2)
+%% * mod:fun3(3)
+%% * mod:fun4(4)
+%% P2
+%% * mod:fun1(value(2), value(3), value(4))
 flat_parallel(_) ->
   Graph = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}, {'$exec', 4}]},
@@ -60,10 +74,17 @@ flat_parallel(_) ->
   end, Context),
   ok.
 
+%% P1
+%% * mod:fun4(4)
+%% P2
+%% * mod:fun3(3, value(4))
+%% * mod:fun2(2, value(4))
+%% P3
+%% * mod:fun1(1, value(2), value(3), value(4))
 mixed(_) ->
   Graph = pdata:compile([
     {1, mod, fun1, [1, {'$exec', 2}, {'$exec', 3}, {'$exec', 4}]},
-    {2, mod, fun2, [2, {'$exec', 3}, {'$exec', 4}]},
+    {2, mod, fun2, [2, {'$exec', 4}]},
     {3, mod, fun3, [3, {'$exec', 4}]},
     {4, mod, fun4, [4]}
   ], 1),
@@ -71,8 +92,8 @@ mixed(_) ->
   {ok, 30} = pdata:execute(Graph, fun
     (mod, fun1, [Val1, Val2, Val3, Val4], _Context, _Sender) ->
       {ok, Val1 + Val2 + Val3 + Val4};
-    (mod, fun2, [Val2, Val3, Val4], _Context, _Sender) ->
-      {ok, Val2 + Val3 + Val4};
+    (mod, fun2, [Val2,  Val4], _Context, _Sender) ->
+      {ok, Val2 + Val4};
     (mod, fun3, [Val3, Val4], _Context, _Sender) ->
       {ok, Val3 + Val4};
     (mod, fun4, [Val], _Context, _Sender) ->
@@ -80,6 +101,14 @@ mixed(_) ->
   end, Context),
   ok.
 
+%% P1
+%% * mod:fun2(2)
+%% * mod:fun2(3)
+%% * mod:fun2(4)
+%% * mod:fun2(5)
+%% * mod:fun2(6)
+%% P2
+%% * mod:fun1(1, {value(2), {value(3), [value(4), {value(5), value(6)}]}})
 deep_exec(_) ->
   Graph = pdata:compile([
     {1, mod, fun1, [{1, {{'$exec', 2}, {{'$exec', 3}, [{'$exec', 4}, {{'$exec', 5}, {'$exec', 6}}]}}}]},
@@ -98,6 +127,14 @@ deep_exec(_) ->
   end, Context),
   ok.
 
+%% P1
+%% * mod:fun4(1)
+%% P2
+%% * mod:fun3(value(4))
+%% P3
+%% * mod:fun2(value(3))
+%% P4
+%% * mod:fun1(value(2))
 async(_) ->
   Graph = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}]},
@@ -113,6 +150,11 @@ async(_) ->
   end, Context),
   ok.
 
+%% P1
+%% * mod:fun2(1)
+%% * mod:fun2(1)
+%% P2
+%% * mod:fun1(value(2), value(3))
 basic_memoize(_) ->
   Graph = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}]},
@@ -132,6 +174,16 @@ basic_memoize(_) ->
   end, Context),
   ok.
 
+%% P1a
+%% * mod:fun3(1)
+%% P1b
+%% * mod:fun4(1)
+%% P2a
+%% * mod:fun2(value(4))
+%% P2b
+%% * mod:fun2(value(5))
+%% P3
+%% * mod:fun1(value(2), value(3))
 complex_memoize(_) ->
   Graph = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}]},
@@ -159,6 +211,12 @@ complex_memoize(_) ->
   end, Context),
   ok.
 
+%% P1
+%% * spawn(mod, fun2, [2])
+%% * spawn(mod, fun3, [3])
+%% * spawn(mod, fun4, [4])
+%% P2
+%% * mod:fun1(value(2), value(3), value(4))
 spawn_worker(_) ->
   Graph = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}, {'$exec', 4}]},
