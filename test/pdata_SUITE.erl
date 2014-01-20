@@ -40,15 +40,15 @@ end_per_suite(_) ->
 %% P4
 %% * mod:fun1(value(2))
 series(_) ->
-  Graph = pdata:compile([
+  {ok, Graph} = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}]},
     {2, mod, fun2, [{'$exec', 3}]},
     {3, mod, fun3, [{'$exec', 4}]},
     {4, mod, fun4, [1]}
   ], 1),
   Context = [],
-  {ok, 4} = pdata:execute(Graph, fun
-    (mod, _, [Value], _Context, _Sender) ->
+  {ok, 5} = pdata:execute(Graph, fun
+    (mod, _, [Value], _Context, _Sender, _ReqID) ->
       {ok, Value + 1}
   end, Context),
   ok.
@@ -60,7 +60,7 @@ series(_) ->
 %% P2
 %% * mod:fun1(value(2), value(3), value(4))
 flat_parallel(_) ->
-  Graph = pdata:compile([
+  {ok, Graph} = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}, {'$exec', 4}]},
     {2, mod, fun2, [2]},
     {3, mod, fun3, [3]},
@@ -68,9 +68,9 @@ flat_parallel(_) ->
   ], 1),
   Context = [],
   {ok, 9} = pdata:execute(Graph, fun
-    (mod, fun1, [Val2, Val3, Val4], _Context, _Sender) ->
+    (mod, fun1, [Val2, Val3, Val4], _Context, _Sender, _ReqID) ->
       {ok, Val2 + Val3 + Val4};
-    (mod, _, [Val], _Context, _Sender) ->
+    (mod, _, [Val], _Context, _Sender, _ReqID) ->
       {ok, Val}
   end, Context),
   ok.
@@ -83,21 +83,21 @@ flat_parallel(_) ->
 %% P3
 %% * mod:fun1(1, value(2), value(3), value(4))
 mixed(_) ->
-  Graph = pdata:compile([
+  {ok, Graph} = pdata:compile([
     {1, mod, fun1, [1, {'$exec', 2}, {'$exec', 3}, {'$exec', 4}]},
     {2, mod, fun2, [2, {'$exec', 4}]},
     {3, mod, fun3, [3, {'$exec', 4}]},
     {4, mod, fun4, [4]}
   ], 1),
   Context = [],
-  {ok, 30} = pdata:execute(Graph, fun
-    (mod, fun1, [Val1, Val2, Val3, Val4], _Context, _Sender) ->
+  {ok, 18} = pdata:execute(Graph, fun
+    (mod, fun1, [Val1, Val2, Val3, Val4], _Context, _Sender, _ReqID) ->
       {ok, Val1 + Val2 + Val3 + Val4};
-    (mod, fun2, [Val2,  Val4], _Context, _Sender) ->
+    (mod, fun2, [Val2,  Val4], _Context, _Sender, _ReqID) ->
       {ok, Val2 + Val4};
-    (mod, fun3, [Val3, Val4], _Context, _Sender) ->
+    (mod, fun3, [Val3, Val4], _Context, _Sender, _ReqID) ->
       {ok, Val3 + Val4};
-    (mod, fun4, [Val], _Context, _Sender) ->
+    (mod, fun4, [Val], _Context, _Sender, _ReqID) ->
       {ok, Val}
   end, Context),
   ok.
@@ -111,7 +111,7 @@ mixed(_) ->
 %% P2
 %% * mod:fun1(1, {value(2), {value(3), [value(4), {value(5), value(6)}]}})
 deep_exec(_) ->
-  Graph = pdata:compile([
+  {ok, Graph} = pdata:compile([
     {1, mod, fun1, [{1, {{'$exec', 2}, {{'$exec', 3}, [{'$exec', 4}, {{'$exec', 5}, {'$exec', 6}}]}}}]},
     {2, mod, fun2, [2]},
     {3, mod, fun2, [3]},
@@ -121,9 +121,9 @@ deep_exec(_) ->
   ], 1),
   Context = [],
   {ok, {1, 2, 3, 4, 5, 6}} = pdata:execute(Graph, fun
-    (mod, fun1, [{V1, {V2, {V3, [V4, {V5, V6}]}}}], _Context, _Sender) ->
+    (mod, fun1, [{V1, {V2, {V3, [V4, {V5, V6}]}}}], _Context, _Sender, _ReqID) ->
       {ok, {V1, V2, V3, V4, V5, V6}};
-    (mod, fun2, [Val], _Context, _Sender) ->
+    (mod, fun2, [Val], _Context, _Sender, _ReqID) ->
       {ok, Val}
   end, Context),
   ok.
@@ -137,16 +137,16 @@ deep_exec(_) ->
 %% P4
 %% * mod:fun1(value(2))
 async(_) ->
-  Graph = pdata:compile([
+  {ok, Graph} = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}]},
     {2, mod, fun2, [{'$exec', 3}]},
     {3, mod, fun3, [{'$exec', 4}]},
     {4, mod, fun4, [1]}
   ], 1),
   Context = [],
-  {ok, 4} = pdata:execute(Graph, fun
-    (mod, _, [Value], _Context, Sender) ->
-      erlang:send_after(100, Sender, Value + 1),
+  {ok, 5} = pdata:execute(Graph, fun
+    (mod, _, [Value], _Context, Sender, ReqID) ->
+      erlang:send_after(100, Sender, {ok, Value + 1, ReqID}),
       pending
   end, Context),
   ok.
@@ -157,7 +157,7 @@ async(_) ->
 %% P2
 %% * mod:fun1(value(2), value(3))
 basic_memoize(_) ->
-  Graph = pdata:compile([
+  {ok, Graph} = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}]},
     {2, mod, fun2, [1]},
     {3, mod, fun2, [1]}
@@ -167,10 +167,10 @@ basic_memoize(_) ->
   SendAfter = 100,
   %% Time < SendAfter * 2
   {ok, 4} = pdata:execute(Graph, fun
-    (mod, fun1, [Value, Value], _Context, _Sender) ->
+    (mod, fun1, [Value, Value], _Context, _Sender, _ReqID) ->
       {ok, Value + Value};
-    (mod, fun2, [Value], _Context, Sender) ->
-      erlang:send_after(SendAfter, Sender, Value + 1),
+    (mod, fun2, [Value], _Context, Sender, ReqID) ->
+      erlang:send_after(SendAfter, Sender, {ok, Value + 1, ReqID}),
       pending
   end, Context),
   ok.
@@ -186,7 +186,7 @@ basic_memoize(_) ->
 %% P3
 %% * mod:fun1(value(2), value(3))
 complex_memoize(_) ->
-  Graph = pdata:compile([
+  {ok, Graph} = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}]},
     {2, mod, fun2, [{'$exec', 4}]},
     {3, mod, fun2, [{'$exec', 5}]},
@@ -197,17 +197,17 @@ complex_memoize(_) ->
 
   SendAfter = 100,
   %% Time < SendAfter * 4
-  {ok, 12} = pdata:execute(Graph, fun
-    (mod, fun1, [Value, Value], _Context, _Sender) ->
+  {ok, 6} = pdata:execute(Graph, fun
+    (mod, fun1, [Value, Value], _Context, _Sender, _ReqID) ->
       {ok, Value + Value};
-    (mod, fun2, [Value], _Context, Sender) ->
-      erlang:send_after(SendAfter, Sender, Value + 1),
+    (mod, fun2, [Value], _Context, Sender, ReqID) ->
+      erlang:send_after(SendAfter, Sender, {ok, Value + 1, ReqID}),
       pending;
-    (mod, fun3, [Value], _Context, Sender) ->
-      erlang:send_after(SendAfter, Sender, Value + 1),
+    (mod, fun3, [Value], _Context, Sender, ReqID) ->
+      erlang:send_after(SendAfter, Sender, {ok, Value + 1, ReqID}),
       pending;
-    (mod, fun4, [Value], _Context, Sender) ->
-      erlang:send_after(SendAfter, Sender, Value + 1),
+    (mod, fun4, [Value], _Context, Sender, ReqID) ->
+      erlang:send_after(SendAfter, Sender, {ok, Value + 1, ReqID}),
       pending
   end, Context),
   ok.
@@ -219,7 +219,7 @@ complex_memoize(_) ->
 %% P2
 %% * mod:fun1(value(2), value(3), value(4))
 spawn_worker(_) ->
-  Graph = pdata:compile([
+  {ok, Graph} = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}, {'$exec', 4}]},
     {2, mod, fun2, [2], spawn},
     {3, mod, fun3, [3], spawn},
@@ -230,9 +230,9 @@ spawn_worker(_) ->
   SleepTime = 100,
   %% Time < SleepTime * 4
   {ok, 9} = pdata:execute(Graph, fun
-    (mod, fun1, [Val2, Val3, Val4], _Context, _Sender) ->
+    (mod, fun1, [Val2, Val3, Val4], _Context, _Sender, _ReqID) ->
       {ok, Val2 + Val3 + Val4};
-    (mod, _, [Val], _Context, _Sender) ->
+    (mod, _, [Val], _Context, _Sender, _ReqID) ->
       timer:sleep(SleepTime),
       {ok, Val}
   end, Context),
@@ -265,7 +265,7 @@ spawn_worker(_) ->
 %% P4
 %% * mod:fun1(value(2), value(9))
 binary_tree(_) ->
-  Graph = pdata:compile([
+  {ok, Graph} = pdata:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 9}]},
     {2, mod, fun2, [{'$exec', 3}, {'$exec', 6}]},
     {3, mod, fun3, [{'$exec', 4}, {'$exec', 5}]},
@@ -284,10 +284,10 @@ binary_tree(_) ->
   ], 1),
   Context = [],
 
-  {ok, 16} = pdata:execute(Graph, fun
-    (mod, _, [Value, Value], _Context, _Sender) ->
-      {ok, Value + Value};
-    (mod, _, [Value], _Context, _Sender) ->
+  {ok, 15} = pdata:execute(Graph, fun
+    (mod, _, [Value1, Value2], _Context, _Sender, _ReqID) ->
+      {ok, Value1 + Value2 + 1};
+    (mod, _, [Value], _Context, _Sender, _ReqID) ->
       {ok, Value}
   end, Context),
   ok.
