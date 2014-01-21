@@ -1,0 +1,8 @@
+{application, lgx, [
+  {id, "lgx"},
+  {description, "Simple logic runtime for erlang"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications, [kernel, stdlib]},
+  {env, []}
+]}.

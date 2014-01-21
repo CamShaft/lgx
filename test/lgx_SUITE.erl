@@ -1,4 +1,4 @@
--module(pdata_SUITE).
+-module(lgx_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -7,7 +7,7 @@
 -export([init_per_suite/1]).
 -export([end_per_suite/1]).
 
-%% pdata
+%% lgx
 -export([series/1]).
 -export([flat_parallel/1]).
 -export([mixed/1]).
@@ -43,7 +43,7 @@ init_per_suite(Config) ->
 end_per_suite(_) ->
   ok.
 
-%% pdata.
+%% lgx.
 
 %% P1
 %% * mod:fun4(1)
@@ -54,15 +54,15 @@ end_per_suite(_) ->
 %% P4
 %% * mod:fun1(value(2))
 series(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{'$exec', 2}]},
     {2, mod, fun2, [{'$exec', 3}]},
     {3, mod, fun3, [{'$exec', 4}]},
     {4, mod, fun4, [1]}
   ], 1),
   Context = [],
-  {ok, 5} = pdata:execute(Graph, fun
-    (mod, _, [Value], _Context, _Sender, _ReqID) ->
+  {ok, 5} = lgx:execute(AST, fun
+    (mod, _, [Value], _Context, _Sender, _Ref) ->
       {ok, Value + 1}
   end, Context),
   ok.
@@ -74,23 +74,23 @@ series(_) ->
 %% P2
 %% * mod:fun1(value(2), value(3), value(4))
 flat_parallel(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}, {'$exec', 4}]},
     {2, mod, fun2, [2]},
     {3, mod, fun3, [3]},
     {4, mod, fun4, [4]}
   ], 1),
   Context = [],
-  {ok, 9} = pdata:execute(Graph, fun
-    (mod, fun1, [Val2, Val3, Val4], _Context, _Sender, _ReqID) ->
+  {ok, 9} = lgx:execute(AST, fun
+    (mod, fun1, [Val2, Val3, Val4], _Context, _Sender, _Ref) ->
       {ok, Val2 + Val3 + Val4};
-    (mod, _, [Val], _Context, _Sender, _ReqID) ->
+    (mod, _, [Val], _Context, _Sender, _Ref) ->
       {ok, Val}
   end, Context),
   ok.
 
 conditional_true(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{'$exec', cond1}]},
     {cond1, '$cond', 2, 3, 4},
     {2, mod, fun2, [true]},
@@ -98,7 +98,7 @@ conditional_true(_) ->
     {4, mod, fun4, []}
   ], 1),
   Context = [],
-  {ok, 123} = pdata:execute(Graph, fun
+  {ok, 123} = lgx:execute(AST, fun
     (mod, fun1, [Result], _Context, _Sender, _Ref) ->
       {ok, Result};
     (mod, fun2, [Result], _Context, _Sender, _Ref) ->
@@ -111,7 +111,7 @@ conditional_true(_) ->
   ok.
 
 conditional_false(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{'$exec', cond1}]},
     {cond1, '$cond', 2, 3, 4},
     {2, mod, fun2, [false]},
@@ -119,7 +119,7 @@ conditional_false(_) ->
     {4, mod, fun4, []}
   ], 1),
   Context = [],
-  {ok, 123} = pdata:execute(Graph, fun
+  {ok, 123} = lgx:execute(AST, fun
     (mod, fun1, [Result], _Context, _Sender, _Ref) ->
       {ok, Result};
     (mod, fun2, [Result], _Context, _Sender, _Ref) ->
@@ -139,7 +139,7 @@ conditional_false(_) ->
 %%     3(), 4()),
 %% cond(7(), 4(), 6()))
 nested_conditionals(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, '1', [{'$exec', cond1}, {'$exec', cond2}]},
     {cond1, '$cond', cond3, 3, 4},
     {cond2, '$cond', 7, 4, 6},
@@ -154,7 +154,7 @@ nested_conditionals(_) ->
     {8, mod, '8', []}
   ], 1),
   Context = [],
-  {ok, {'4', '4'}} = pdata:execute(Graph, fun
+  {ok, {'4', '4'}} = lgx:execute(AST, fun
     (mod, '1', [Result1, Result2], _Context, _Sender, _Ref) ->
       {ok, {Result1, Result2}};
     (mod, '7', [], _Context, _Sender, _Ref) ->
@@ -172,21 +172,21 @@ nested_conditionals(_) ->
 %% P3
 %% * mod:fun1(1, value(2), value(3), value(4))
 mixed(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [1, {'$exec', 2}, {'$exec', 3}, {'$exec', 4}]},
     {2, mod, fun2, [2, {'$exec', 4}]},
     {3, mod, fun3, [3, {'$exec', 4}]},
     {4, mod, fun4, [4]}
   ], 1),
   Context = [],
-  {ok, 18} = pdata:execute(Graph, fun
-    (mod, fun1, [Val1, Val2, Val3, Val4], _Context, _Sender, _ReqID) ->
+  {ok, 18} = lgx:execute(AST, fun
+    (mod, fun1, [Val1, Val2, Val3, Val4], _Context, _Sender, _Ref) ->
       {ok, Val1 + Val2 + Val3 + Val4};
-    (mod, fun2, [Val2,  Val4], _Context, _Sender, _ReqID) ->
+    (mod, fun2, [Val2,  Val4], _Context, _Sender, _Ref) ->
       {ok, Val2 + Val4};
-    (mod, fun3, [Val3, Val4], _Context, _Sender, _ReqID) ->
+    (mod, fun3, [Val3, Val4], _Context, _Sender, _Ref) ->
       {ok, Val3 + Val4};
-    (mod, fun4, [Val], _Context, _Sender, _ReqID) ->
+    (mod, fun4, [Val], _Context, _Sender, _Ref) ->
       {ok, Val}
   end, Context),
   ok.
@@ -200,7 +200,7 @@ mixed(_) ->
 %% P2
 %% * mod:fun1(1, {value(2), {value(3), [value(4), {value(5), value(6)}]}})
 deep_exec(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{1, {{'$exec', 2}, {{'$exec', 3}, [{'$exec', 4}, {{'$exec', 5}, {'$exec', 6}}]}}}]},
     {2, mod, fun2, [2]},
     {3, mod, fun2, [3]},
@@ -209,10 +209,10 @@ deep_exec(_) ->
     {6, mod, fun2, [6]}
   ], 1),
   Context = [],
-  {ok, {1, 2, 3, 4, 5, 6}} = pdata:execute(Graph, fun
-    (mod, fun1, [{V1, {V2, {V3, [V4, {V5, V6}]}}}], _Context, _Sender, _ReqID) ->
+  {ok, {1, 2, 3, 4, 5, 6}} = lgx:execute(AST, fun
+    (mod, fun1, [{V1, {V2, {V3, [V4, {V5, V6}]}}}], _Context, _Sender, _Ref) ->
       {ok, {V1, V2, V3, V4, V5, V6}};
-    (mod, fun2, [Val], _Context, _Sender, _ReqID) ->
+    (mod, fun2, [Val], _Context, _Sender, _Ref) ->
       {ok, Val}
   end, Context),
   ok.
@@ -226,14 +226,14 @@ deep_exec(_) ->
 %% P4
 %% * mod:fun1(value(2))
 async(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{'$exec', 2}]},
     {2, mod, fun2, [{'$exec', 3}]},
     {3, mod, fun3, [{'$exec', 4}]},
     {4, mod, fun4, [1]}
   ], 1),
   Context = [],
-  {ok, 5} = pdata:execute(Graph, fun
+  {ok, 5} = lgx:execute(AST, fun
     (mod, _, [Value], _Context, Sender, ReqID) ->
       erlang:send_after(100, Sender, {ok, Value + 1, ReqID}),
       pending
@@ -246,7 +246,7 @@ async(_) ->
 %% P2
 %% * mod:fun1(value(2), value(3))
 basic_memoize(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}]},
     {2, mod, fun2, [1]},
     {3, mod, fun2, [1]}
@@ -255,8 +255,8 @@ basic_memoize(_) ->
 
   SendAfter = 100,
   %% Time < SendAfter * 2
-  {ok, 4} = pdata:execute(Graph, fun
-    (mod, fun1, [Value, Value], _Context, _Sender, _ReqID) ->
+  {ok, 4} = lgx:execute(AST, fun
+    (mod, fun1, [Value, Value], _Context, _Sender, _Ref) ->
       {ok, Value + Value};
     (mod, fun2, [Value], _Context, Sender, ReqID) ->
       erlang:send_after(SendAfter, Sender, {ok, Value + 1, ReqID}),
@@ -275,7 +275,7 @@ basic_memoize(_) ->
 %% P3
 %% * mod:fun1(value(2), value(3))
 complex_memoize(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}]},
     {2, mod, fun2, [{'$exec', 4}]},
     {3, mod, fun2, [{'$exec', 5}]},
@@ -286,8 +286,8 @@ complex_memoize(_) ->
 
   SendAfter = 100,
   %% Time < SendAfter * 4
-  {ok, 6} = pdata:execute(Graph, fun
-    (mod, fun1, [Value, Value], _Context, _Sender, _ReqID) ->
+  {ok, 6} = lgx:execute(AST, fun
+    (mod, fun1, [Value, Value], _Context, _Sender, _Ref) ->
       {ok, Value + Value};
     (mod, fun2, [Value], _Context, Sender, ReqID) ->
       erlang:send_after(SendAfter, Sender, {ok, Value + 1, ReqID}),
@@ -308,7 +308,7 @@ complex_memoize(_) ->
 %% P2
 %% * mod:fun1(value(2), value(3), value(4))
 spawn_worker(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 3}, {'$exec', 4}]},
     {2, mod, fun2, [2], spawn},
     {3, mod, fun3, [3], spawn},
@@ -318,10 +318,10 @@ spawn_worker(_) ->
 
   SleepTime = 100,
   %% Time < SleepTime * 4
-  {ok, 9} = pdata:execute(Graph, fun
-    (mod, fun1, [Val2, Val3, Val4], _Context, _Sender, _ReqID) ->
+  {ok, 9} = lgx:execute(AST, fun
+    (mod, fun1, [Val2, Val3, Val4], _Context, _Sender, _Ref) ->
       {ok, Val2 + Val3 + Val4};
-    (mod, _, [Val], _Context, _Sender, _ReqID) ->
+    (mod, _, [Val], _Context, _Sender, _Ref) ->
       timer:sleep(SleepTime),
       {ok, Val}
   end, Context),
@@ -354,7 +354,7 @@ spawn_worker(_) ->
 %% P4
 %% * mod:fun1(value(2), value(9))
 binary_tree(_) ->
-  {ok, Graph} = pdata:compile([
+  {ok, AST} = lgx:compile([
     {1, mod, fun1, [{'$exec', 2}, {'$exec', 9}]},
     {2, mod, fun2, [{'$exec', 3}, {'$exec', 6}]},
     {3, mod, fun3, [{'$exec', 4}, {'$exec', 5}]},
@@ -373,10 +373,10 @@ binary_tree(_) ->
   ], 1),
   Context = [],
 
-  {ok, 15} = pdata:execute(Graph, fun
-    (mod, _, [Value1, Value2], _Context, _Sender, _ReqID) ->
+  {ok, 15} = lgx:execute(AST, fun
+    (mod, _, [Value1, Value2], _Context, _Sender, _Ref) ->
       {ok, Value1 + Value2 + 1};
-    (mod, _, [Value], _Context, _Sender, _ReqID) ->
+    (mod, _, [Value], _Context, _Sender, _Ref) ->
       {ok, Value}
   end, Context),
   ok.

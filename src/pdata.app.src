@@ -1,8 +1,0 @@
-{application, pdata, [
-  {id, "pdata"},
-  {description, "Simple parallel data processing in erlang"},
-  {vsn, "0.1.0"},
-  {registered, []},
-  {applications, [kernel, stdlib]},
-  {env, []}
-]}.

@@ -1,4 +1,4 @@
--module(pdata).
+-module(lgx).
 
 -export([compile/1]).
 -export([compile/2]).

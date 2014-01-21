@@ -1,8 +1,8 @@
-PROJECT = pdata
+PROJECT = lgx
 
 # Options.
 
-CT_SUITES = pdata
+CT_SUITES = lgx
 
 # Dependencies
 

@@ -1,7 +1,7 @@
-pdata [![Build Status](https://travis-ci.org/CamShaft/pdata.png?branch=master)](https://travis-ci.org/CamShaft/pdata)
+lgx [![Build Status](https://travis-ci.org/CamShaft/lgx.png?branch=master)](https://travis-ci.org/CamShaft/lgx)
 =====
 
-Simple parallel data processing in erlang
+Simple logic runtime for erlang
 
 Usage
 -----
