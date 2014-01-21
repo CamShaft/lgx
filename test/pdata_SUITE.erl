@@ -11,6 +11,9 @@
 -export([series/1]).
 -export([flat_parallel/1]).
 -export([mixed/1]).
+-export([conditional_true/1]).
+-export([conditional_false/1]).
+-export([nested_conditionals/1]).
 -export([async/1]).
 -export([deep_exec/1]).
 -export([basic_memoize/1]).
@@ -21,7 +24,18 @@
 %% ct.
 
 all() ->
-  [series, flat_parallel, mixed, async, deep_exec, basic_memoize, complex_memoize, spawn_worker, binary_tree].
+  [series,
+   flat_parallel,
+   mixed,
+   conditional_true,
+   conditional_false,
+   nested_conditionals,
+   async,
+   deep_exec,
+   basic_memoize,
+   complex_memoize,
+   spawn_worker,
+   binary_tree].
 
 init_per_suite(Config) ->
   Config.
@@ -72,6 +86,81 @@ flat_parallel(_) ->
       {ok, Val2 + Val3 + Val4};
     (mod, _, [Val], _Context, _Sender, _ReqID) ->
       {ok, Val}
+  end, Context),
+  ok.
+
+conditional_true(_) ->
+  {ok, Graph} = pdata:compile([
+    {1, mod, fun1, [{'$exec', cond1}]},
+    {cond1, '$cond', 2, 3, 4},
+    {2, mod, fun2, [true]},
+    {3, mod, fun3, []},
+    {4, mod, fun4, []}
+  ], 1),
+  Context = [],
+  {ok, 123} = pdata:execute(Graph, fun
+    (mod, fun1, [Result], _Context, _Sender, _Ref) ->
+      {ok, Result};
+    (mod, fun2, [Result], _Context, _Sender, _Ref) ->
+      {ok, Result};
+    (mod, fun3, [], _Context, _Sender, _Ref) ->
+      {ok, 123};
+    (mod, fun4, [], _Context, _Sender, _Ref) ->
+      erlang:error({fun4_called})
+  end, Context),
+  ok.
+
+conditional_false(_) ->
+  {ok, Graph} = pdata:compile([
+    {1, mod, fun1, [{'$exec', cond1}]},
+    {cond1, '$cond', 2, 3, 4},
+    {2, mod, fun2, [false]},
+    {3, mod, fun3, []},
+    {4, mod, fun4, []}
+  ], 1),
+  Context = [],
+  {ok, 123} = pdata:execute(Graph, fun
+    (mod, fun1, [Result], _Context, _Sender, _Ref) ->
+      {ok, Result};
+    (mod, fun2, [Result], _Context, _Sender, _Ref) ->
+      {ok, Result};
+    (mod, fun3, [], _Context, _Sender, _Ref) ->
+      erlang:error({fun3_called});
+    (mod, fun4, [], _Context, _Sender, _Ref) ->
+      {ok, 123}
+  end, Context),
+  ok.
+
+%% 1(
+%%  cond(
+%%    cond(
+%%      cond(2(), 7(), 8()),
+%%        5(), 6())
+%%     3(), 4()),
+%% cond(7(), 4(), 6()))
+nested_conditionals(_) ->
+  {ok, Graph} = pdata:compile([
+    {1, mod, '1', [{'$exec', cond1}, {'$exec', cond2}]},
+    {cond1, '$cond', cond3, 3, 4},
+    {cond2, '$cond', 7, 4, 6},
+    {cond3, '$cond', cond4, 5, 6},
+    {cond4, '$cond', 2, 7, 8},
+    {2, mod, '2', []},
+    {3, mod, '3', []},
+    {4, mod, '4', []},
+    {5, mod, '5', []},
+    {6, mod, '6', []},
+    {7, mod, '7', []},
+    {8, mod, '8', []}
+  ], 1),
+  Context = [],
+  {ok, {'4', '4'}} = pdata:execute(Graph, fun
+    (mod, '1', [Result1, Result2], _Context, _Sender, _Ref) ->
+      {ok, {Result1, Result2}};
+    (mod, '7', [], _Context, _Sender, _Ref) ->
+      {ok, true};
+    (mod, Num, [], _Context, _Sender, _Ref) ->
+      {ok, Num}
   end, Context),
   ok.
 
