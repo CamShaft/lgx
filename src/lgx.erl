@@ -54,6 +54,8 @@ normalize_defs([Def|Defs], Acc) ->
   Normalized = normalize_def(Def, length(Acc)),
   normalize_defs(Defs, [Normalized|Acc]).
 
+normalize_def({Name, '$cond', Cond, A}, Index) ->
+  {Name, bitindex(Index), {Cond, A, undefined}, '$cond'};
 normalize_def({Name, '$cond', Cond, A, B}, Index) ->
   {Name, bitindex(Index), {Cond, A, B}, '$cond'};
 normalize_def({Name, Mod, Fun, Args}, Index) when is_atom(Mod), is_atom(Fun), is_list(Args) ->
@@ -65,6 +67,9 @@ normalize_def(Fun, _) ->
 
 lookup_conds([], _, Optional) ->
   Optional;
+lookup_conds([{_, _, {_, A, undefined}, '$cond'}|Rest], Forms, Optional) ->
+  Optional2 = Optional bor index_by_name(A, Forms),
+  lookup_conds(Rest, Forms, Optional2);
 lookup_conds([{_, _, {_, A, B}, '$cond'}|Rest], Forms, Optional) ->
   Optional2 = Optional bor index_by_name(A, Forms) bor index_by_name(B, Forms),
   lookup_conds(Rest, Forms, Optional2);
@@ -81,6 +86,12 @@ index_by_name(Name, Forms) ->
 
 expand_defs([], Required, _, Expanded) ->
   {Expanded, Required};
+expand_defs([{_, Index, {Cond, A, undefined}, '$cond'}|Rest], Required, Forms, Expanded) ->
+  Dep = index_by_name(Cond, Forms),
+  AI = index_by_name(A, Forms),
+  Required2 = Required bor Dep,
+  Expanded2 = [{Index, {Dep, AI, undefined}, '$cond', Dep}|Expanded],
+  expand_defs(Rest, Required2, Forms, Expanded2);
 expand_defs([{_, Index, {Cond, A, B}, '$cond'}|Rest], Required, Forms, Expanded) ->
   Dep = index_by_name(Cond, Forms),
   AI = index_by_name(A, Forms),
@@ -200,6 +211,10 @@ digest(Req = #req{changed = Changed, required = Required, forms = ReqForms},
                  required = Required bor Dep,
                  changed = Changed + 1},
   digest(Req2, Forms);
+digest(Req, [{Index, undefined, '$alias', undefined}|Forms]) ->
+  Req2 = complete(Index, Req),
+  Req3 = add_value(Index, undefined, Req2),
+  digest(Req3, Forms);
 digest(Req, [{Index, Dep, '$alias', Dep}|Forms]) when Dep band Req#req.completed =:= Dep ->
   Req2 = complete(Index, Req),
   Req3 = add_value(Index, fast_key:get(Dep, Req2#req.values), Req2),
