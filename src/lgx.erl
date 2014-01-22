@@ -13,16 +13,19 @@
   context,
   completed = 0,
   endname,
-  values = gb_trees:empty(),
+  values = [],
   pending = 0,
-  changed = 0,
+  changed = false,
   required
 }).
 
 -define(COMPLETE(I, Value, Req),
   Req#req{completed = Req#req.completed bor I,
-          changed = Req#req.changed + 1,
-          values = gb_trees:insert(I, Value, Req#req.values)}).
+          changed = true,
+          values = [{I, Value}|Req#req.values]}).
+
+-define(GET_VALUE(I, Req),
+  fast_key:get(I, Req#req.values, undefined)).
 
 compile(Defs) ->
   [Def|_] = Defs,
@@ -178,13 +181,13 @@ execute(Req) ->
       %% TODO stop the pending processes; if we can...
       {error, Error};
     %% We've made a pass and there are no async pending calls
-    Req2 = #req{pending = 0, changed = C} when C > 0 ->
-      execute(Req2#req{changed = 0});
+    Req2 = #req{pending = 0, changed = true} ->
+      execute(Req2#req{changed = false});
     %% There's nothing further to do so we wait
-    Req2 = #req{changed = 0, pending = P} when P > 0 ->
+    Req2 = #req{changed = false, pending = P} when P > 0 ->
       check_pending(Req2, 2000);
     %% There's some stuff that changed so we'll quickly check the mailbox
-    Req2 = #req{changed = C, pending = P} when C > 0, P > 0 ->
+    Req2 = #req{changed = true, pending = P} when P > 0 ->
       check_pending(Req2, 0);
     %% We're in a really bad state... We can't reduce any further and don't have the final value
     _Req2 ->
@@ -211,9 +214,9 @@ digest(Req, []) ->
   Req;
 digest(Req = #req{forms = ReqForms}, [{Index, _, _, _} = Form|Forms]) when Index band Req#req.required =:= 0 ->
   digest(Req#req{forms = [Form|ReqForms]}, Forms);
-digest(Req = #req{changed = Changed, required = Required, forms = ReqForms},
+digest(Req = #req{required = Required, forms = ReqForms},
              [{Index, {Cond, A, B}, '$cond', Deps}|Forms]) when Deps band Req#req.completed =:= Deps ->
-  Dep = case gb_trees:get(Cond, Req#req.values) of
+  Dep = case ?GET_VALUE(Cond, Req) of
     true -> A;
     _ -> B
   end,
@@ -224,20 +227,20 @@ digest(Req = #req{changed = Changed, required = Required, forms = ReqForms},
   end,
   Req2 = Req#req{forms = [NewForm|ReqForms],
                  required = Required2,
-                 changed = Changed + 1},
+                 changed = true},
   digest(Req2, Forms);
 digest(Req, [{Index, undefined, '$var', undefined}|Forms]) ->
   Req2 = ?COMPLETE(Index, undefined, Req),
   digest(Req2, Forms);
 digest(Req, [{Index, Dep,'$var', Dep}|_]) when Dep band Req#req.completed =:= Dep andalso Index =:= Req#req.endname ->
-  Value = gb_trees:get(Dep, Req#req.values),
+  Value = ?GET_VALUE(Dep, Req),
   {ok, Value};
 digest(Req, [{Index, Dep,'$var', Dep}|Forms]) when Dep band Req#req.completed =:= Dep ->
-  Value = gb_trees:get(Dep, Req#req.values),
+  Value = ?GET_VALUE(Dep, Req),
   Req2 = ?COMPLETE(Index, Value, Req),
   digest(Req2, Forms);
 digest(Req, [{Index, {Mod, Fun, Args}, _Spawn, Deps}|Forms]) when Deps band Req#req.completed =:= Deps ->
-  ResArgs = resolve_values(Args, [], Req#req.values),
+  ResArgs = resolve_values(Args, [], Req),
   MapFun = Req#req.mapfun,
   Context = Req#req.context,
   %% TODO spawn_link request if true
@@ -260,7 +263,7 @@ digest(Req = #req{forms = ReqForms}, [Form|Forms]) ->
 resolve_values([], Args, _) ->
   lists:reverse(Args);
 resolve_values([{'$exec', Index}|Rest], Args, Values) ->
-  Value = gb_trees:get(Index, Values),
+  Value = ?GET_VALUE(Index, Values),
   resolve_values(Rest, [Value|Args], Values);
 resolve_values([{Arg}|Rest], Args, Values) ->
   Arg2 = resolve_values(Arg, [], Values),
