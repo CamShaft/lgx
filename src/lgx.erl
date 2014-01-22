@@ -13,7 +13,7 @@
   context,
   completed = 0,
   endname,
-  values,
+  values = gb_trees:empty(),
   pending = 0,
   changed = 0,
   required
@@ -202,7 +202,7 @@ digest(Req = #req{forms = ReqForms}, [{Index, _, _, _} = Form|Forms]) when Index
   digest(Req#req{forms = [Form|ReqForms]}, Forms);
 digest(Req = #req{changed = Changed, required = Required, forms = ReqForms},
              [{Index, {Cond, A, B}, '$cond', Deps}|Forms]) when Deps band Req#req.completed =:= Deps ->
-  Dep = case fast_key:get(Cond, Req#req.values) of
+  Dep = case gb_trees:get(Cond, Req#req.values) of
     true -> A;
     _ -> B
   end,
@@ -217,7 +217,7 @@ digest(Req, [{Index, undefined, '$alias', undefined}|Forms]) ->
   digest(Req3, Forms);
 digest(Req, [{Index, Dep, '$alias', Dep}|Forms]) when Dep band Req#req.completed =:= Dep ->
   Req2 = complete(Index, Req),
-  Req3 = add_value(Index, fast_key:get(Dep, Req2#req.values), Req2),
+  Req3 = add_value(Index, gb_trees:get(Dep, Req2#req.values), Req2),
   digest(Req3, Forms);
 digest(Req, [{Index, {Mod, Fun, Args}, _Spawn, Deps}|Forms]) when Deps band Req#req.completed =:= Deps ->
   ResArgs = resolve_values(Args, [], Req#req.values),
@@ -244,7 +244,7 @@ digest(Req = #req{forms = ReqForms}, [Form|Forms]) ->
 resolve_values([], Args, _) ->
   lists:reverse(Args);
 resolve_values([{'$exec', Index}|Rest], Args, Values) ->
-  Value = fast_key:get(Index, Values),
+  Value = gb_trees:get(Index, Values),
   resolve_values(Rest, [Value|Args], Values);
 resolve_values([{Arg}|Rest], Args, Values) ->
   Arg2 = resolve_values(Arg, [], Values),
@@ -261,7 +261,7 @@ complete(I, Req = #req{completed = C, changed = Ch}) ->
           changed = Ch + 1}.
 
 add_value(Name, Value, Req = #req{values = Values}) ->
-  Req#req{values = [{Name, Value}|Values]}.
+  Req#req{values = gb_trees:insert(Name, Value, Values)}.
 
 %% utils
 
