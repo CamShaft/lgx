@@ -118,7 +118,7 @@ replace_args([Arg|Rest], Forms, Args, Deps) when is_list(Arg) ->
 replace_args([Arg|Rest], Forms, Args, Deps) when is_tuple(Arg) ->
   List = tuple_to_list(Arg),
   {Arg2, Deps2} = replace_args(List, Forms, [], Deps),
-  Arg3 = list_to_tuple(Arg2),
+  Arg3 = {Arg2},
   replace_args(Rest, Forms, [Arg3|Args], Deps2);
 replace_args([Arg|Rest], Forms, Args, Deps) ->
   replace_args(Rest, Forms, [Arg|Args], Deps).
@@ -246,14 +246,13 @@ resolve_values([], Args, _) ->
 resolve_values([{'$exec', Index}|Rest], Args, Values) ->
   Value = fast_key:get(Index, Values),
   resolve_values(Rest, [Value|Args], Values);
+resolve_values([{Arg}|Rest], Args, Values) ->
+  Arg2 = resolve_values(Arg, [], Values),
+  Arg3 = list_to_tuple(Arg2),
+  resolve_values(Rest, [Arg3|Args], Values);
 resolve_values([Arg|Rest], Args, Values) when is_list(Arg) ->
   Arg2 = resolve_values(Arg, [], Values),
   resolve_values(Rest, [Arg2|Args], Values);
-resolve_values([Arg|Rest], Args, Values) when is_tuple(Arg) ->
-  List = tuple_to_list(Arg),
-  Arg2 = resolve_values(List, [], Values),
-  Arg3 = list_to_tuple(Arg2),
-  resolve_values(Rest, [Arg3|Args], Values);
 resolve_values([Arg|Rest], Args, Values) ->
   resolve_values(Rest, [Arg|Args], Values).
 
