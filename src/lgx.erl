@@ -218,8 +218,12 @@ digest(Req = #req{changed = Changed, required = Required, forms = ReqForms},
     _ -> B
   end,
   NewForm = {Index, Dep, '$var', Dep},
+  Required2 = case Dep of
+    undefined -> Required;
+    Dep -> Required bor Dep
+  end,
   Req2 = Req#req{forms = [NewForm|ReqForms],
-                 required = Required bor Dep,
+                 required = Required2,
                  changed = Changed + 1},
   digest(Req2, Forms);
 digest(Req, [{Index, undefined, '$var', undefined}|Forms]) ->
