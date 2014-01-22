@@ -19,6 +19,11 @@
   required
 }).
 
+-define(COMPLETE(I, Value, Req),
+  Req#req{completed = Req#req.completed bor I,
+          changed = Req#req.changed + 1,
+          values = gb_trees:insert(I, Value, Req#req.values)}).
+
 compile(Defs) ->
   [Def|_] = Defs,
   Name = erlang:element(1, Def),
@@ -51,17 +56,17 @@ apply(Defs, Start, MapFun, Context) ->
 normalize_defs([], Acc) ->
   Acc;
 normalize_defs([Def|Defs], Acc) ->
-  Normalized = normalize_def(Def, length(Acc)),
+  Normalized = normalize_def(Def, trunc(math:pow(2, length(Acc)))),
   normalize_defs(Defs, [Normalized|Acc]).
 
 normalize_def({Name, '$cond', Cond, A}, Index) ->
-  {Name, bitindex(Index), {Cond, A, undefined}, '$cond'};
+  {Name, Index, {Cond, A, undefined}, '$cond'};
 normalize_def({Name, '$cond', Cond, A, B}, Index) ->
-  {Name, bitindex(Index), {Cond, A, B}, '$cond'};
+  {Name, Index, {Cond, A, B}, '$cond'};
 normalize_def({Name, Mod, Fun, Args}, Index) when is_atom(Mod), is_atom(Fun), is_list(Args) ->
-  {Name, bitindex(Index), {Mod, Fun, Args}, false};
+  {Name, Index, {Mod, Fun, Args}, false};
 normalize_def({Name, Mod, Fun, Args, spawn}, Index) when is_atom(Mod), is_atom(Fun), is_list(Args) ->
-  {Name, bitindex(Index), {Mod, Fun, Args}, spawn};
+  {Name, Index, {Mod, Fun, Args}, spawn};
 normalize_def(Fun, _) ->
   erlang:error({invalid_fun, Fun}).
 
@@ -185,10 +190,9 @@ check_pending(Req = #req{ref = Ref, endname = End}, Timeout) ->
     {Status, Value, {Ref, Index}} when Index =:= End ->
       {Status, Value};
     {ok, Value, {Ref, Index}} ->
-      Req2 = complete(Index, Req),
-      Req3 = add_value(Index, Value, Req2),
-      Pending = Req3#req.pending - 1,
-      execute(Req3#req{pending = Pending});
+      Req2 = ?COMPLETE(Index, Value, Req),
+      Pending = Req2#req.pending - 1,
+      execute(Req2#req{pending = Pending});
     {error, Error, {Ref, _Index}} ->
       %% TODO stop the pending processes; if we can...
       {error, Error}
@@ -212,13 +216,12 @@ digest(Req = #req{changed = Changed, required = Required, forms = ReqForms},
                  changed = Changed + 1},
   digest(Req2, Forms);
 digest(Req, [{Index, undefined, '$alias', undefined}|Forms]) ->
-  Req2 = complete(Index, Req),
-  Req3 = add_value(Index, undefined, Req2),
-  digest(Req3, Forms);
+  Req2 = ?COMPLETE(Index, undefined, Req),
+  digest(Req2, Forms);
 digest(Req, [{Index, Dep, '$alias', Dep}|Forms]) when Dep band Req#req.completed =:= Dep ->
-  Req2 = complete(Index, Req),
-  Req3 = add_value(Index, gb_trees:get(Dep, Req2#req.values), Req2),
-  digest(Req3, Forms);
+  Value = gb_trees:get(Dep, Req#req.values),
+  Req2 = ?COMPLETE(Index, Value, Req),
+  digest(Req2, Forms);
 digest(Req, [{Index, {Mod, Fun, Args}, _Spawn, Deps}|Forms]) when Deps band Req#req.completed =:= Deps ->
   ResArgs = resolve_values(Args, [], Req#req.values),
   MapFun = Req#req.mapfun,
@@ -230,9 +233,8 @@ digest(Req, [{Index, {Mod, Fun, Args}, _Spawn, Deps}|Forms]) when Deps band Req#
     {error, Error} ->
       {error, Error, Req};
     {ok, Value} ->
-      Req2 = complete(Index, Req),
-      Req3 = add_value(Index, Value, Req2),
-      digest(Req3, Forms);
+      Req2 = ?COMPLETE(Index, Value, Req),
+      digest(Req2, Forms);
     pending ->
       Pending = Req#req.pending + 1,
       digest(Req#req{pending = Pending}, Forms)
@@ -255,15 +257,3 @@ resolve_values([Arg|Rest], Args, Values) when is_list(Arg) ->
   resolve_values(Rest, [Arg2|Args], Values);
 resolve_values([Arg|Rest], Args, Values) ->
   resolve_values(Rest, [Arg|Args], Values).
-
-complete(I, Req = #req{completed = C, changed = Ch}) ->
-  Req#req{completed = C bor I,
-          changed = Ch + 1}.
-
-add_value(Name, Value, Req = #req{values = Values}) ->
-  Req#req{values = gb_trees:insert(Name, Value, Values)}.
-
-%% utils
-
-bitindex(I) ->
-  trunc(math:pow(2, I)).
