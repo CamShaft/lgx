@@ -59,6 +59,8 @@ normalize_defs([Def|Defs], Acc) ->
   Normalized = normalize_def(Def, trunc(math:pow(2, length(Acc)))),
   normalize_defs(Defs, [Normalized|Acc]).
 
+normalize_def({Name, '$var', Fun}, Index) ->
+  {Name, Index, Fun, '$var'};
 normalize_def({Name, '$cond', Cond, A}, Index) ->
   {Name, Index, {Cond, A, undefined}, '$cond'};
 normalize_def({Name, '$cond', Cond, A, B}, Index) ->
@@ -91,6 +93,11 @@ index_by_name(Name, Forms) ->
 
 expand_defs([], Required, _, Expanded) ->
   {Expanded, Required};
+expand_defs([{_, Index, Fun, '$var'}|Rest], Required, Forms, Expanded) ->
+  Dep = index_by_name(Fun, Forms),
+  Required2 = Required bor Dep,
+  Expanded2 = [{Index, Dep, '$var', Dep}|Expanded],
+  expand_defs(Rest, Required2, Forms, Expanded2);
 expand_defs([{_, Index, {Cond, A, undefined}, '$cond'}|Rest], Required, Forms, Expanded) ->
   Dep = index_by_name(Cond, Forms),
   AI = index_by_name(A, Forms),
@@ -210,15 +217,18 @@ digest(Req = #req{changed = Changed, required = Required, forms = ReqForms},
     true -> A;
     _ -> B
   end,
-  NewForm = {Index, Dep, '$alias', Dep},
+  NewForm = {Index, Dep, '$var', Dep},
   Req2 = Req#req{forms = [NewForm|ReqForms],
                  required = Required bor Dep,
                  changed = Changed + 1},
   digest(Req2, Forms);
-digest(Req, [{Index, undefined, '$alias', undefined}|Forms]) ->
+digest(Req, [{Index, undefined, '$var', undefined}|Forms]) ->
   Req2 = ?COMPLETE(Index, undefined, Req),
   digest(Req2, Forms);
-digest(Req, [{Index, Dep, '$alias', Dep}|Forms]) when Dep band Req#req.completed =:= Dep ->
+digest(Req, [{Index, Dep,'$var', Dep}|_]) when Dep band Req#req.completed =:= Dep andalso Index =:= Req#req.endname ->
+  Value = gb_trees:get(Dep, Req#req.values),
+  {ok, Value};
+digest(Req, [{Index, Dep,'$var', Dep}|Forms]) when Dep band Req#req.completed =:= Dep ->
   Value = gb_trees:get(Dep, Req#req.values),
   Req2 = ?COMPLETE(Index, Value, Req),
   digest(Req2, Forms);

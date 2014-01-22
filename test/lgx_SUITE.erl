@@ -20,6 +20,7 @@
 -export([complex_memoize/1]).
 -export([spawn_worker/1]).
 -export([binary_tree/1]).
+-export([variables/1]).
 
 %% ct.
 
@@ -35,7 +36,8 @@ all() ->
    basic_memoize,
    complex_memoize,
    spawn_worker,
-   binary_tree].
+   binary_tree,
+   variables].
 
 init_per_suite(Config) ->
   Config.
@@ -378,5 +380,20 @@ binary_tree(_) ->
       {ok, Value1 + Value2 + 1};
     (mod, _, [Value], _Context, _Sender, _Ref) ->
       {ok, Value}
+  end, Context),
+  ok.
+
+variables(_) ->
+  {ok, AST} = lgx:compile([
+    {1, '$var', 2},
+    {2, '$var', 3},
+    {3, '$var', 4},
+    {4, '$var', 5},
+    {5, mod, fun1, []}
+  ], 1),
+  Context = [],
+  {ok, 1} = lgx:execute(AST, fun
+    (_, _, _, _, _, _) ->
+      {ok, 1}
   end, Context),
   ok.
