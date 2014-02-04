@@ -11,7 +11,7 @@
   forms,
   mapfun,
   context,
-  completed = 0,
+  completed,
   endname,
   values = [],
   pending = 0,
@@ -32,18 +32,19 @@ compile(Defs) ->
   Name = erlang:element(1, Def),
   compile(Defs, Name).
 compile(Defs, Start) ->
-  Normalized = normalize_defs(Defs, []),
+  {Normalized, Completed} = normalize_defs(Defs, []),
   StartIndex = index_by_name(Start, Normalized),
   Optional = lookup_conds(Normalized, Normalized, 0),
   {Expanded, Required} = expand_defs(Normalized, bnot Optional, Normalized, []),
   Filtered = removed_unused(Expanded, StartIndex),
-  {ok, {Filtered, StartIndex, Required}}.
+  {ok, {Filtered, StartIndex, Required, Completed}}.
 
-execute({Forms, End, Required}, MapFun, Context) ->
+execute({Forms, End, Required, Completed}, MapFun, Context) ->
   execute(#req{ref = erlang:make_ref(),
                forms = Forms,
                mapfun = MapFun,
                context = Context,
+               completed = Completed,
                endname = End,
                required = Required}).
 
@@ -57,7 +58,7 @@ apply(Defs, Start, MapFun, Context) ->
 %% compiler.
 
 normalize_defs([], Acc) ->
-  Acc;
+  {Acc, trunc(math:pow(2, length(Acc)))};
 normalize_defs([Def|Defs], Acc) ->
   Normalized = normalize_def(Def, trunc(math:pow(2, length(Acc)))),
   normalize_defs(Defs, [Normalized|Acc]).
@@ -274,3 +275,60 @@ resolve_values([Arg|Rest], Args, Values) when is_list(Arg) ->
   resolve_values(Rest, [Arg2|Args], Values);
 resolve_values([Arg|Rest], Args, Values) ->
   resolve_values(Rest, [Arg|Args], Values).
+
+-ifdef(PERF).
+
+horse_compile() ->
+  horse:repeat(90000, binary_tree_compile()).
+
+binary_tree_compile() ->
+  lgx:compile([
+    {1, mod, fun1, [{'$exec', 2}, {'$exec', 9}]},
+    {2, mod, fun2, [{'$exec', 3}, {'$exec', 6}]},
+    {3, mod, fun3, [{'$exec', 4}, {'$exec', 5}]},
+    {4, mod, fun4, [1]},
+    {5, mod, fun5, [1]},
+    {6, mod, fun6, [{'$exec', 7}, {'$exec', 8}]},
+    {7, mod, fun7, [1]},
+    {8, mod, fun8, [1]},
+    {9, mod, fun9, [{'$exec', 10}, {'$exec', 13}]},
+    {10, mod, fun10, [{'$exec', 11}, {'$exec', 12}]},
+    {11, mod, fun11, [1]},
+    {12, mod, fun12, [1]},
+    {13, mod, fun13, [{'$exec', 14}, {'$exec', 15}]},
+    {14, mod, fun14, [1]},
+    {15, mod, fun15, [1]}
+  ], 1),
+  ok.
+
+horse_execute() ->
+  horse:repeat(120000,
+    binary_tree_exec()
+  ).
+
+binary_tree_exec() ->
+  AST = {[{8,{mod,fun4,[1]},false,0},
+      {16,{mod,fun5,[1]},false,0},
+      {64,{mod,fun7,[1]},false,0},
+      {128,{mod,fun8,[1]},false,0},
+      {1024,{mod,fun11,[1]},false,0},
+      {2048,{mod,fun12,[1]},false,0},
+      {8192,{mod,fun14,[1]},false,0},
+      {16384,{mod,fun15,[1]},false,0},
+      {4,{mod,fun3,[{'$exec',8},{'$exec',16}]},false,24},
+      {2,{mod,fun2,[{'$exec',4},{'$exec',32}]},false,36},
+      {32,{mod,fun6,[{'$exec',64},{'$exec',128}]},false,192},
+      {1,{mod,fun1,[{'$exec',2},{'$exec',256}]},false,258},
+      {512,{mod,fun10,[{'$exec',1024},{'$exec',2048}]},false,3072},
+      {256,{mod,fun9,[{'$exec',512},{'$exec',4096}]},false,4608},
+      {4096,{mod,fun13,[{'$exec',8192},{'$exec',16384}]},false,24576}],
+     1,-1,32768},
+  Context = [],
+
+  lgx:execute(AST, fun
+    (_, _, Args, _Context, _Sender, _Ref) ->
+      {ok, Args}
+  end, Context),
+  ok.
+
+-endif.

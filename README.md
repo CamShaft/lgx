@@ -1,4 +1,4 @@
-lgx [![Build Status](https://travis-ci.org/CamShaft/lgx.png?branch=master)](https://travis-ci.org/CamShaft/lgx)
+lgx [![Build Status](https://travis-ci.org/camshaft/lgx.png?branch=master)](https://travis-ci.org/camshaft/lgx)
 =====
 
 Simple logic runtime for erlang
