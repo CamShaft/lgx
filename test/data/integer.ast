@@ -1,0 +1,5 @@
+#{
+  type => literal,
+  value => 123,
+  line => 1
+}.

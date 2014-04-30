@@ -1,0 +1,22 @@
+#{
+  type => call,
+  line => 1,
+  value => {module, function},
+  children => #{
+    0 => #{
+      type => literal,
+      value => <<"binary">>,
+      line => 2
+    },
+    1 => #{
+      type => literal,
+      value => 123,
+      line => 3
+    },
+    2 => #{
+      type => literal,
+      value => 3.14,
+      line => 4
+    }
+  }
+}.

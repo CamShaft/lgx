@@ -1,6 +1,4 @@
 language: erlang
-script: make tests perfs
+script: make test
 otp_release:
-  - R16B02
-  - R16B01
-  - R16B
+  - 17.0

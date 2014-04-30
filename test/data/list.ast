@@ -1,0 +1,21 @@
+#{
+  type => list,
+  line => 1,
+  children => #{
+    0 => #{
+      type => literal,
+      value => first,
+      line => 2
+    },
+    1 => #{
+      type => literal,
+      value => second,
+      line => 3
+    },
+    2 => #{
+      type => literal,
+      value => third,
+      line => 4
+    }
+  }
+}.

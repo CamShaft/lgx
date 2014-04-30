@@ -1,0 +1,17 @@
+#{
+  type => assign,
+  line => 1,
+  value => 'MyVar',
+  children => #{
+    0 => #{
+      type => literal,
+      value => <<"value">>,
+      line => 1
+    }
+  }
+}.
+#{
+  type => variable,
+  value => 'MyVar',
+  line => 2
+}.

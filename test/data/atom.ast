@@ -1,0 +1,5 @@
+#{
+  type => literal,
+  value => atom,
+  line => 1
+}.

@@ -1,0 +1,21 @@
+#{
+  type => map,
+  line => 1,
+  children => #{
+    first_key => #{
+      type => literal,
+      value => first,
+      line => 2
+    },
+    second_key => #{
+      type => literal,
+      value => second,
+      line => 3
+    },
+    third_key => #{
+      type => literal,
+      value => third,
+      line => 4
+    }
+  }
+}.

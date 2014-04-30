@@ -1,0 +1,5 @@
+#{
+  type => literal,
+  value => <<"binary">>,
+  line => 1
+}.

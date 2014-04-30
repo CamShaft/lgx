@@ -1,0 +1,9 @@
+{application, expr, [
+  {id, "expr"},
+  {description, "Simple, parallel expression engine for erlang"},
+  {vsn, "0.2.0"},
+  {modules, []},
+  {registered, []},
+  {applications, [kernel, stdlib]},
+  {env, []}
+]}.
