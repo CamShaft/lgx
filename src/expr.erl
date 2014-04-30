@@ -19,6 +19,6 @@ compile(Exprs) ->
   end.
 
 execute({?VERSION, Forms}, MapFun, Context) ->
-  expr_runtime:exectue(Forms, MapFun, Context);
+  expr_runtime:execute(Forms, MapFun, Context);
 execute(Forms, _, _) ->
   {error, {unsupported_format, Forms}}.
