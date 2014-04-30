@@ -16,7 +16,14 @@ perfs: clean deps deps/horse app
 
 test: eunit
 
-eunit: ebin/*.beam test/expr_test.erl test/data/*
-	@rebar eunit
+ebin/%.beam: test/%.erl
+	@erlc -o ebin $<
+
+eunit: app ebin/expr_test.beam test/data/*
+	@erl \
+	  -noshell \
+	  -pa ebin \
+	  -eval "eunit:test($(PROJECT)_test, [verbose])" \
+	  -s init stop
 
 .PHONY: eunit
