@@ -1,0 +1,80 @@
+#{
+  type => comprehension,
+  children => #{
+    assignment => #{
+      type => assign,
+      value => 'User',
+      children => #{
+        0 => #{
+          type => list,
+          children => #{
+            0 => #{
+              type => literal,
+              value => <<"1">>
+            },
+            1 => #{
+              type => literal,
+              value => <<"2">>
+            },
+            2 => #{
+              type => literal,
+              value => <<"3">>
+            },
+            3 => #{
+              type => literal,
+              value => <<"4">>
+            },
+            4 => #{
+              type => literal,
+              value => <<"5">>
+            }
+          }
+        }
+      }
+    },
+    filters => [
+      #{
+        type => call,
+        value => {users, is_allowed},
+        children => #{
+          0 => #{
+            type => variable,
+            value => 'User'
+          }
+        }
+      }
+    ],
+    body => [
+      #{
+        type => assign,
+        value => 'User2',
+        children => #{
+          0 => #{
+            type => call,
+            value => {users, fetch_user},
+            children => #{
+              0 => #{
+                type => variable,
+                value => 'User'
+              }
+            }
+          }
+        }
+      },
+      #{
+        type => call,
+        value => {maps, get},
+        children => #{
+          0 => #{
+            type => literal,
+            value => name
+          },
+          1 => #{
+            type => variable,
+            value => 'User2'
+          }
+        }
+      }
+    ]
+  }
+}.

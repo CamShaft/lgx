@@ -5,7 +5,7 @@
 expr_test_() ->
   {ok, CWD} = file:get_cwd(),
   Folder = filename:join(CWD, "test/data"),
-  Tests = filelib:wildcard(Folder ++ "/*.ast"),
+  Tests = filelib:wildcard(Folder ++ "/comp*.ast"),
   [fun() -> expr(filename:join(Folder, filename:basename(Test, ".ast"))) end || Test <- Tests].
 
 expr(Test) ->

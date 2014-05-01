@@ -74,7 +74,12 @@ flatten([#{children := Children} = Expr|Exprs], Acc) ->
 flatten_children([], Children, Acc) ->
   {Children, Acc};
 flatten_children([Key|Keys], Children, Acc) ->
-  {ok, Acc2} = flatten([maps:get(Key, Children)], Acc),
+  {ok, Acc2} = case maps:get(Key, Children) of
+    Child when is_list(Child) ->
+      flatten(Child, Acc);
+    Child ->
+      flatten([Child], Acc)
+  end,
   Children2 = maps:update(Key, fid(Acc2) - 1, Children),
   flatten_children(Keys, Children2, Acc2).
 

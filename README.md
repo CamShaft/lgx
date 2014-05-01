@@ -16,6 +16,59 @@ Every form has a `type` field. It also should set `line` to get helpful errors t
 * `timeout` - timeout after ms
 * `spawn` - spawn the function in a wrapper process for an async response
 
+### Runtime
+
+The runtime behaves lazily, meaning it only evaluates the expressions when it needs the answer. It also uses a kind of error monad to handle exceptions.
+
+#### steps
+
+##### before
+
+* push the root `expr` onto `pending`
+
+##### loop
+
+* each expr in pending
+  * is it root and is it done?
+    * yes
+      * return the value from `values`
+    * no
+      * are the dependencies ready?
+        * yes
+          * push the `expr` on `fns`
+        * no
+          * push the dependencies on `pending`
+
+* while messages
+  * recieve with timeout 0
+    * timeout
+      * exit loop
+    * value
+      * set the return value in `values` from `pid` `id`
+      * remove `pid` from `pids`
+    * error
+      * push `error` on `errors`
+
+* each pid in pids
+  * now - start > timeout
+    * push `timeout error` on `errors`
+    * kill pid
+
+* each fn in fns
+  * execute function with arguments
+    * error
+      * push `error` on `errors`
+    * pid
+      * push `pid` on `pids` with a start time
+    * success
+      * set the return value in `values` from `fn` `id`
+
+* each error in errors
+  * is silent?
+    * set `fn` result to `undefined`
+  * otherwise
+    * crash
+
 ### Types
 
 #### Literals
@@ -191,6 +244,79 @@ or
       value => {module, truths}
     }
     %% otherwise returns 'undefined'
+  }
+}
+```
+
+##### comprehension
+
+```erlang
+#{
+  type => comprehension,
+  children => #{
+    assignment => #{
+      type => assign,
+      value => 'User',
+      children => #{
+        0 => #{
+          type => list,
+          children => #{
+            0 => #{
+              type => literal,
+              value => <<"1">>
+            },
+            1 => #{
+              type => literal,
+              value => <<"2">>
+            },
+            2 => #{
+              type => literal,
+              value => <<"3">>
+            }
+          }
+        }
+      }
+    },
+    filters => #{
+      0 => #{
+        type => call,
+        value => {users, is_allowed},
+        children => #{
+          0 => #{
+            type => variable,
+            value => 'User'
+          }
+        }
+      }
+    },
+    body => #{
+      0 => #{
+        type => assign,
+        value => 'User2',
+        children => #{
+          0 => #{
+            type => call,
+            value => {users, fetch_user},
+            children => #{
+              0 => #{
+                type => variable,
+                value => 'User'
+              }
+            }
+          }
+        }
+      },
+      1 => #{
+        type => call,
+        value => {users, format},
+        children => #{
+          0 => #{
+            type => variable,
+            value => 'User2'
+          }
+        }
+      }
+    }
   }
 }
 ```
