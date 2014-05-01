@@ -66,10 +66,10 @@ pending_loop([Expr = #expr{type = call, deps = Deps, status = waiting}|Rest],
               State = #state{calls = Calls, completed = Completed, values = Values}) when Deps band Completed =:= Deps ->
   Args = [maps:get(Key, Values) || Key <- Expr#expr.children],
   Expr2 = Expr#expr{children = Args},
-  pending_loop(Rest, [Expr|Pending], State#state{calls = [Expr2|Calls]});
+  pending_loop(Rest, [Expr#expr{status = in_progress}|Pending], State#state{calls = [Expr2|Calls]});
 
 %% the dependencies have not been added to the pending list
-pending_loop([Expr = #expr{children = Children, status = added}|Rest], Pending, State) ->
+pending_loop([Expr = #expr{children = Children, status = added, deps = -1}|Rest], Pending, State)  ->
   {Rest2, Pending2, State2} = pending_add(Expr#expr{deps = 0}, [], Children, Rest, Pending, State),
   pending_loop(Rest2, Pending2, State2);
 
@@ -83,21 +83,34 @@ pending_add(Expr, NewChildren, [], Rest, Pending, State) ->
   {Rest, [Expr#expr{status = waiting, children = lists:reverse(NewChildren)}|Pending], State};
 
 %% pull the child from the vars map if integer
-pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = call}|Children], Rest, Pending, State) ->
+pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child|Children], Rest, Pending,
+            State = #state{vars = Vars, waiting = Waiting}) when is_integer(Child)  ->
+  ChildExpr = maps:get(Child, Vars),
+  Expr2 = Expr#expr{deps = Deps bor Child},
+  Rest2 = case Child band Waiting =:= 0 of
+    true ->
+      [ChildExpr|Rest];
+    _ ->
+      Rest
+  end,
+  pending_add(Expr2, [Child|NewChildren], Children, Rest2, Pending, State#state{waiting = Waiting bor Child});
+
+%% add a child call expression
+pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = call}|Children], Rest, Pending, State = #state{waiting = Waiting}) ->
   {ID, State2} = next_id(State),
   Expr2 = Expr#expr{deps = Deps bor ID},
   Child2 = Child#expr{id = ID},
   Rest2 = [Child2|Rest],
-  Pending2 = [Child2|Pending],
-  pending_add(Expr2, [ID|NewChildren], Children, Rest2, Pending2, State2);
+  pending_add(Expr2, [ID|NewChildren], Children, Rest2, Pending, State2#state{waiting = Waiting bor ID});
 
+%% add a child literal expression
 %% pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = literal}|Children], Rest, Pending, State) ->
 %%   {ID, State2} = next_id(State),
 %%   Expr2 = Expr#expr{deps = Deps bor ID},
   
 %%   pending_add(Expr2, [ID|NewChildren], Children, Rest2, Pending2, State2);
 
-pending_add(Expr, NewChildren, Children, Rest, Pending, State) ->
+pending_add(Expr, NewChildren, [_|Children], Rest, Pending, State) ->
   pending_add(Expr, NewChildren, Children, Rest, Pending, State).
 
 %%%%%%%
@@ -119,11 +132,12 @@ receive_loop(State) ->
 %%%%%%%
 
 exec_loop(State = #state{calls = Calls}) ->
-  exec_loop(Calls, State).
+  exec_loop(Calls, [], State).
 
-exec_loop([], State) ->
-  {ok, State};
-exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = IsRoot}|_Calls],
+exec_loop([], Calls, State) ->
+  {ok, State#state{calls = Calls}};
+exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = IsRoot}|Rest],
+           Calls,
            State = #state{cache = Cache, map = Lookup, context = Context, ref = Ref}) ->
 
   CacheKey = {Mod, Fun, Args},
@@ -131,14 +145,14 @@ exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = 
     {ok, Value} when IsRoot ->
       {ok, Value, State};
     {ok, Value} ->
-      {ok, set_result(Value, Expr, State)};
+      exec_loop(Rest, Calls, set_result(Value, Expr, State));
     _ ->
       case Lookup(Mod, Fun, Args, Context, self(), {Ref, ID}) of
         {ok, Value} when IsRoot ->
           {ok, Value, State};
         {ok, Value} ->
           Cache2 = maps:put(CacheKey, Value, Cache),
-          {ok, set_result(Value, Expr, State#state{cache = Cache2})};
+          exec_loop(Rest, Calls, set_result(Value, Expr, State#state{cache = Cache2}));
         Error ->
           Error
       end

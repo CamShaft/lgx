@@ -5,6 +5,7 @@
   vars = #{} :: list(),
   pending = [] :: list(),
   counter = 0 :: integer(),
+  waiting = 0 :: integer(),
   completed = 0 :: integer(),
   errors = [] :: list(),
   map :: fun(),

@@ -125,12 +125,91 @@ end).
   [[[], [], []],[[], [], []],[[], [], []]]
 }).
 
+-define(TEST6, {
+  #state{
+     vars = #{
+       2 => #expr{id = 2, type = call, value = {mod, fn}, children = []}
+     },
+     pending = [
+       #expr{id = 1, type = call, value = {mod, fn}, is_root = true, children = [
+         #expr{type = call, value = {mod, fn}, children = [
+           #expr{type = call, value = {mod, fn}, children = []},
+           #expr{type = call, value = {mod, fn}, children = []},
+           2
+         ]},
+         #expr{type = call, value = {mod, fn}, children = [
+           #expr{type = call, value = {mod, fn}, children = []},
+           2,
+           #expr{type = call, value = {mod, fn}, children = []}
+         ]},
+         #expr{type = call, value = {mod, fn}, children = [
+           2,
+           #expr{type = call, value = {mod, fn}, children = []},
+           #expr{type = call, value = {mod, fn}, children = []}
+         ]}
+       ]}
+     ],
+     counter = 2
+  },
+  ?NOOP,
+  {},
+  [[[], [], []],[[], [], []],[[], [], []]]
+}).
+
+-define(TEST7, {
+  #state{
+     vars = #{
+       4 => #expr{id = 4, type = call, value = {mod4, fn}, children = []},
+       2 => #expr{id = 2, type = call, value = {mod2, fn}, children = [4, 4, 4]}
+     },
+     pending = [
+       #expr{id = 1, type = call, value = {mod1, fn}, is_root = true, children = [
+         #expr{type = call, value = {mod1_1, fn}, children = [
+           #expr{type = call, value = {mod1_1_1, fn}, children = []},
+           #expr{type = call, value = {mod1_1_2, fn}, children = []},
+           2
+         ]},
+         #expr{type = call, value = {mod1_2, fn}, children = [
+           #expr{type = call, value = {mod1_2_2, fn}, children = []},
+           2,
+           #expr{type = call, value = {mod1_2_3, fn}, children = []}
+         ]},
+         #expr{type = call, value = {mod1_3, fn}, children = [
+           2,
+           #expr{type = call, value = {mod1_3_2, fn}, children = []},
+           #expr{type = call, value = {mod1_3_3, fn}, children = []}
+         ]}
+       ]}
+     ],
+     counter = 3
+  },
+  fun(Module, _Fun, Args, _, _, _) ->
+    {ok, [Module|Args]}
+  end,
+  {},
+  [mod1,
+    [mod1_1,
+      [mod1_1_1],
+      [mod1_1_2],
+      [mod2,[mod4],[mod4],[mod4]]],
+    [mod1_2,
+      [mod1_2_2],
+      [mod2,[mod4],[mod4],[mod4]],
+      [mod1_2_3]],
+    [mod1_3,
+      [mod2,[mod4],[mod4],[mod4]],
+      [mod1_3_2],
+      [mod1_3_3]]]
+}).
+
 -define(TESTS, [
   ?TEST1,
   ?TEST2,
   ?TEST3,
   ?TEST4,
-  ?TEST5
+  ?TEST5,
+  ?TEST6,
+  ?TEST7
 ]).
 
 runtime_test_() ->
