@@ -54,7 +54,9 @@ pending_loop([#expr{type = literal, value = Value, is_root = true}|_], _, State)
   {ok, Value, State};
 
 %% set the literal value to the id in #state.values
-%% pending_loop()
+pending_loop([Expr = #expr{type = literal, value = Value}|Rest], Pending, State) ->
+  State2 = set_result(Value, Expr, State),
+  pending_loop(Rest, Pending, State2);
 
 %% clear the completed functions
 pending_loop([#expr{id = ID}|Rest], Pending, State = #state{completed = Completed}) when ID band Completed =:= ID ->
@@ -64,8 +66,8 @@ pending_loop([#expr{id = ID}|Rest], Pending, State = #state{completed = Complete
 pending_loop([Expr = #expr{type = call, deps = Deps, status = waiting}|Rest],
               Pending,
               State = #state{calls = Calls, completed = Completed, values = Values}) when Deps band Completed =:= Deps ->
-  Args = [maps:get(Key, Values) || Key <- Expr#expr.children],
-  Expr2 = Expr#expr{children = Args},
+  {ok, Children} = resolve_values(Expr#expr.children, [], Values),
+  Expr2 = Expr#expr{children = Children},
   pending_loop(Rest, [Expr#expr{status = in_progress}|Pending], State#state{calls = [Expr2|Calls]});
 
 %% the dependencies have not been added to the pending list
@@ -103,15 +105,19 @@ pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = call}|
   Rest2 = [Child2|Rest],
   pending_add(Expr2, [ID|NewChildren], Children, Rest2, Pending, State2#state{waiting = Waiting bor ID});
 
-%% add a child literal expression
-%% pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = literal}|Children], Rest, Pending, State) ->
-%%   {ID, State2} = next_id(State),
-%%   Expr2 = Expr#expr{deps = Deps bor ID},
-  
-%%   pending_add(Expr2, [ID|NewChildren], Children, Rest2, Pending2, State2);
+%% continue on... REMOVE THIS ONCE ALL IS READY!!! - there should be a match for all previous patterns or crash
+pending_add(Expr, NewChildren, [Child|Children], Rest, Pending, State) ->
+  pending_add(Expr, [Child|NewChildren], Children, Rest, Pending, State).
 
-pending_add(Expr, NewChildren, [_|Children], Rest, Pending, State) ->
-  pending_add(Expr, NewChildren, Children, Rest, Pending, State).
+%% resolve all of the needed arguments
+
+resolve_values([], Acc, _) ->
+  {ok, lists:reverse(Acc)};
+resolve_values([Child|Children], Acc, Values) when is_integer(Child) ->
+  Value = maps:get(Child, Values),
+  resolve_values(Children, [Value|Acc], Values);
+resolve_values([#expr{type = literal, value = Value}|Children], Acc, Values) ->
+  resolve_values(Children, [Value|Acc], Values).
 
 %%%%%%%
 %% receive loop.
@@ -139,7 +145,8 @@ exec_loop([], Calls, State) ->
 exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = IsRoot}|Rest],
            Calls,
            State = #state{cache = Cache, map = Lookup, context = Context, ref = Ref}) ->
-
+  %% TODO spawn
+  %% TODO async functions
   CacheKey = {Mod, Fun, Args},
   case maps:find(CacheKey, Cache) of
     {ok, Value} when IsRoot ->
@@ -153,16 +160,25 @@ exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = 
         {ok, Value} ->
           Cache2 = maps:put(CacheKey, Value, Cache),
           exec_loop(Rest, Calls, set_result(Value, Expr, State#state{cache = Cache2}));
+        {ok, Value, Context2} ->
+          Cache2 = maps:put(CacheKey, Value, Cache),
+          exec_loop(Rest, Calls, set_result(Value, Expr, State#state{cache = Cache2, context = Context2}));
         Error ->
           Error
       end
   end.
 
-%% cleanup any pending things here
+%%%%%%%
+%% error handler.
+%%%%%%%
+
+%% TODO cleanup any pending things here
 handle_error(Error, State) ->
   {error, Error, State}.
 
+%%%%%%%
 %% utils.
+%%%%%%%
 
 %% TODO clear the pid
 set_result(Value, #expr{id = ID}, State = #state{values = Values, completed = Completed}) ->
