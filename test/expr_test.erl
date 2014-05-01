@@ -271,6 +271,36 @@ end).
   bar
 }).
 
+-define(TEST12, {
+  #state{
+     pending = [
+       #expr{id = 1, type = 'cond', is_root = true, children = [
+         #expr{type = call, value = {mod, true}, children = [
+           #expr{type = call, value = {mod, fn}, children = []},
+           #expr{type = call, value = {mod, fn}, children = []},
+           #expr{type = call, value = {mod, fn}, children = []}
+         ]},
+         #expr{type = call, value = {mod, foo}, children = [
+           #expr{type = call, value = {mod, fn}, children = []},
+           #expr{type = call, value = {mod, fn}, children = []},
+           #expr{type = call, value = {mod, fn}, children = []}
+         ]},
+         #expr{type = call, value = {mod, bar}, children = [
+           #expr{type = call, value = {mod, fn}, children = []},
+           #expr{type = call, value = {mod, fn}, children = []},
+           #expr{type = call, value = {mod, fn}, children = []}
+         ]}
+       ]}
+     ],
+     counter = 3
+  },
+  fun(_Module, Fun, _Args, _, _, _) ->
+    {ok, Fun}
+  end,
+  {},
+  foo
+}).
+
 -define(TESTS, [
   ?TEST1,
   ?TEST2,
@@ -282,7 +312,8 @@ end).
   ?TEST8,
   ?TEST9,
   ?TEST10,
-  ?TEST11
+  ?TEST11,
+  ?TEST12
 ]).
 
 runtime_test_() ->

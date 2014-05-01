@@ -143,8 +143,8 @@ pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = call}|
   Rest2 = [Child2|Rest],
   pending_add(Expr2, [ID|NewChildren], Children, Rest2, Pending, State2#state{waiting = Waiting bor ID});
 
-%% continue on... REMOVE THIS ONCE ALL IS READY!!! - there should be a match for all previous patterns or crash
-pending_add(Expr, NewChildren, [Child|Children], Rest, Pending, State) ->
+%% pass on the literals
+pending_add(Expr, NewChildren, [Child = #expr{type = literal}|Children], Rest, Pending, State) ->
   pending_add(Expr, [Child|NewChildren], Children, Rest, Pending, State).
 
 %% resolve all of the needed arguments
