@@ -43,6 +43,9 @@ loop(State) ->
 %% pending loop.
 %%%%%%%
 
+%% if this clause executes you're in a bad place, big guy...
+pending_loop(State = #state{pending = [], iterations = I}) when I =:= 0 ->
+  {error, no_solution, State};
 pending_loop(State = #state{pending = Pending}) ->
   pending_loop(Pending, [], State).
 
@@ -58,17 +61,52 @@ pending_loop([Expr = #expr{type = literal, value = Value}|Rest], Pending, State)
   State2 = set_result(Value, Expr, State),
   pending_loop(Rest, Pending, State2);
 
-%% clear the completed functions
-pending_loop([#expr{id = ID}|Rest], Pending, State = #state{completed = Completed}) when ID band Completed =:= ID ->
-  pending_loop(Rest, Pending, State);
-
 %% the dependencies are ready so add the 'pending' function to the 'calls' list
 pending_loop([Expr = #expr{type = call, deps = Deps, status = waiting}|Rest],
               Pending,
               State = #state{calls = Calls, completed = Completed, values = Values}) when Deps band Completed =:= Deps ->
   {ok, Children} = resolve_values(Expr#expr.children, [], Values),
   Expr2 = Expr#expr{children = Children},
-  pending_loop(Rest, [Expr#expr{status = in_progress}|Pending], State#state{calls = [Expr2|Calls]});
+  pending_loop(Rest, Pending, State#state{calls = [Expr2|Calls]});
+
+%% evaluate the first child in a condition
+pending_loop([Expr = #expr{type = 'cond', status = added, children = [Cond|_] = Children}|Rest], Pending, State) ->
+  {Rest2, Pending2, State2} = pending_add(Expr#expr{deps = 0, tmp = Children}, [], [Cond], Rest, Pending, State),
+  pending_loop(Rest2, Pending2, State2);
+
+%% evaluate the selected branch of the condition
+pending_loop([Expr = #expr{type = 'cond', deps = Dep, tmp = Children, status = waiting}|Rest],
+              Pending,
+              State = #state{completed = Completed, values = Values}) when Dep band Completed =:= Dep ->
+  Branch = case maps:get(Dep, Values) of
+    true ->
+      lists:nth(2, Children);
+    false ->
+      lists:nth(3, Children);
+    Arg ->
+      {error, {cond_badarg, Arg}, State}
+  end,
+  case Branch of
+    {error, _, _} = Error ->
+      Error;
+    Branch ->
+      {Rest2, [Expr2|Pending2], State2} = pending_add(Expr#expr{deps = 0}, [], [Branch], Rest, Pending, State),
+      Expr3 = Expr2#expr{status = branching},
+      pending_loop(Rest2, [Expr3|Pending2], State2)
+  end;
+
+%% set the result of the branch
+pending_loop([Expr = #expr{type = 'cond', deps = Dep, status = branching}|Rest],
+              Pending,
+              State = #state{completed = Completed, values = Values}) when Dep band Completed =:= Dep ->
+  Value = maps:get(Dep, Values),
+  case Expr#expr.is_root of
+    true ->
+      {ok, Value, State};
+    _ ->
+      State2 = set_result(Value, Expr, State),
+      pending_loop(Rest, Pending, State2)
+  end;
 
 %% the dependencies have not been added to the pending list
 pending_loop([Expr = #expr{children = Children, status = added, deps = -1}|Rest], Pending, State)  ->
@@ -137,6 +175,8 @@ receive_loop(State) ->
 %% exec loop.
 %%%%%%%
 
+exec_loop(State = #state{calls = []}) ->
+  {ok, State};
 exec_loop(State = #state{calls = Calls}) ->
   exec_loop(Calls, [], State).
 
@@ -148,11 +188,12 @@ exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = 
   %% TODO spawn
   %% TODO async functions
   CacheKey = {Mod, Fun, Args},
+  Hits = State#state.cache_hits,
   case maps:find(CacheKey, Cache) of
     {ok, Value} when IsRoot ->
-      {ok, Value, State};
+      {ok, Value, State#state{cache_hits = Hits + 1}};
     {ok, Value} ->
-      exec_loop(Rest, Calls, set_result(Value, Expr, State));
+      exec_loop(Rest, Calls, set_result(Value, Expr, State#state{cache_hits = Hits + 1}));
     _ ->
       case Lookup(Mod, Fun, Args, Context, self(), {Ref, ID}) of
         {ok, Value} when IsRoot ->

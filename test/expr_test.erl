@@ -233,6 +233,44 @@ end).
   [foo, bar]
 }).
 
+-define(TEST10, {
+  #state{
+     vars = #{
+       8 => #expr{id = 8, type = literal, value = bar},
+       4 => #expr{id = 4, type = literal, value = foo},
+       2 => #expr{id = 2, type = call, value = {mod, true}, children = []}
+     },
+     pending = [
+       #expr{id = 1, type = 'cond', is_root = true, children = [2, 4, 8]}
+     ],
+     counter = 3
+  },
+  fun(_Module, Fun, _Args, _, _, _) ->
+    {ok, Fun}
+  end,
+  {},
+  foo
+}).
+
+-define(TEST11, {
+  #state{
+     vars = #{
+       8 => #expr{id = 8, type = literal, value = bar},
+       4 => #expr{id = 4, type = literal, value = foo},
+       2 => #expr{id = 2, type = call, value = {mod, false}, children = []}
+     },
+     pending = [
+       #expr{id = 1, type = 'cond', is_root = true, children = [2, 4, 8]}
+     ],
+     counter = 3
+  },
+  fun(_Module, Fun, _Args, _, _, _) ->
+    {ok, Fun}
+  end,
+  {},
+  bar
+}).
+
 -define(TESTS, [
   ?TEST1,
   ?TEST2,
@@ -242,7 +280,9 @@ end).
   ?TEST6,
   ?TEST7,
   ?TEST8,
-  ?TEST9
+  ?TEST9,
+  ?TEST10,
+  ?TEST11
 ]).
 
 runtime_test_() ->

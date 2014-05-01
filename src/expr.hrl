@@ -1,6 +1,7 @@
 -record(state, {
   ref :: reference(),
   cache = #{} :: map(),
+  cache_hits = 0 :: integer(),
   values = #{} :: map(),
   vars = #{} :: list(),
   pending = [] :: list(),
@@ -23,5 +24,6 @@
   deps = -1,
   is_root = false,
   children = [],
-  status = added
+  status = added,
+  tmp
 }).
