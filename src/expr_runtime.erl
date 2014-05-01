@@ -4,43 +4,17 @@
 
 -include("expr.hrl").
 
--record(state, {
-  values :: map(),
-  exprs = [] :: list(),
-  pending = [] :: list(),
-  counter = 0 :: integer(),
-  completed = 0 :: integer(),
-  errors = [] :: list(),
-  map :: fun(),
-  context :: any(),
-  iterations = 0 :: integer(),
-  pids = [] :: list()
-}).
-
--define(MOCK, #state{
-  values = #{
-
-  },
-  %% all of the initial expressions
-  exprs = #{
-
-  },
-  pending = [
-    #{
-      type => literal,
-      value => atom
-    }
-  ],
-  map = fun() ->
-    {ok, todo}
-  end
-}).
-
 execute([], _, _) ->
   {ok, undefined};
-execute(_Forms, _MapFun, _Context) ->
-  loop(?MOCK).
+execute(State, MapFun, Context) ->
+  loop(State#state{map = MapFun, context = Context, ref = make_ref()}).
 
+%%%%%%%
+%% main loop.
+%%%%%%%
+
+loop(State = #state{iterations = 1000}) ->
+  {error, infinite_loop, State};
 loop(State) ->
   case pending_loop(State) of
     %% we're done
@@ -53,59 +27,122 @@ loop(State) ->
         {error, Error, ReceiveState} ->
           handle_error(Error, ReceiveState);
         {ok, ReceiveState} ->
-          case timeout_loop(ReceiveState) of
-            {error, Error, TimeoutState} ->
-              handle_error(Error, TimeoutState);
-            {ok, TimeoutState} ->
-              case exec_loop(TimeoutState) of
-                {error, Error, ExecState} ->
-                  handle_error(Error, ExecState);
-                {ok, ExecState = #state{iterations = Iter}} ->
-                  loop(ExecState#state{iterations = Iter + 1})
-              end
+          case exec_loop(ReceiveState) of
+            {error, Error, ExecState} ->
+               handle_error(Error, ExecState);
+            %% we're done!
+            {ok, Value, ExecState} ->
+              {ok, Value, ExecState};
+            {ok, ExecState = #state{iterations = Iter}} ->
+               loop(ExecState#state{iterations = Iter + 1})
           end
       end
   end.
 
+%%%%%%%
 %% pending loop.
+%%%%%%%
 
-pending_loop(State = #state{pending = _Pending}) ->
-  {ok, State}.
-  %% pending_loop(Pending, State).
+pending_loop(State = #state{pending = Pending}) ->
+  pending_loop(Pending, [], State).
 
-%% pending_loop([#{type => literal}|Pending], State) ->
+pending_loop([], Pending, State) ->
+  {ok, State#state{pending = Pending}};
+
+%% the root is a literal so just return the value
+pending_loop([#expr{type = literal, value = Value, is_root = true}|_], _, State) ->
+  {ok, Value, State};
+
+%% set the literal value to the id in #state.values
+%% pending_loop()
+
+%% clear the completed functions
+pending_loop([#expr{id = ID}|Rest], Pending, State = #state{completed = Completed}) when ID band Completed =:= ID ->
+  pending_loop(Rest, Pending, State);
+
+%% the dependencies are ready so add the 'pending' function to the 'calls' list
+pending_loop([Expr = #expr{type = call, deps = Deps, status = waiting}|Rest],
+              Pending,
+              State = #state{calls = Calls, completed = Completed, values = Values}) when Deps band Completed =:= Deps ->
+  Args = [maps:get(Key, Values) || Key <- Expr#expr.children],
+  Expr2 = Expr#expr{children = Args},
+  pending_loop(Rest, [Expr|Pending], State#state{calls = [Expr2|Calls]});
+
+%% the dependencies have not been added to the pending list
+pending_loop([Expr = #expr{children = Children, status = added}|Rest], Pending, State) ->
+  {Rest2, Pending2, State2} = pending_add(Expr#expr{deps = 0}, [], Children, Rest, Pending, State),
+  pending_loop(Rest2, Pending2, State2);
+
+%% continue on... REMOVE THIS ONCE ALL IS READY!!! - there should be a match for all previous patterns or crash
+pending_loop([Expr|Rest], Pending, State) ->
+  pending_loop(Rest, [Expr|Pending], State).
+
+%%% add the children to the 'pending' list
+
+pending_add(Expr, NewChildren, [], Rest, Pending, State) ->
+  {Rest, [Expr#expr{status = waiting, children = lists:reverse(NewChildren)}|Pending], State};
+
+%% pull the child from the vars map if integer
+pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = call}|Children], Rest, Pending, State) ->
+  {ID, State2} = next_id(State),
+  Expr2 = Expr#expr{deps = Deps bor ID},
+  Child2 = Child#expr{id = ID},
+  Rest2 = [Child2|Rest],
+  Pending2 = [Child2|Pending],
+  pending_add(Expr2, [ID|NewChildren], Children, Rest2, Pending2, State2);
+
+%% pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = literal}|Children], Rest, Pending, State) ->
+%%   {ID, State2} = next_id(State),
+%%   Expr2 = Expr#expr{deps = Deps bor ID},
+  
+%%   pending_add(Expr2, [ID|NewChildren], Children, Rest2, Pending2, State2);
+
+pending_add(Expr, NewChildren, Children, Rest, Pending, State) ->
+  pending_add(Expr, NewChildren, Children, Rest, Pending, State).
+
+%%%%%%%
+%% receive loop.
+%%%%%%%
 
 receive_loop(State) ->
   receive
     {ok, Value, Ref} ->
       receive_loop(set_result(Value, Ref, State));
     {error, Error, _Ref} ->
-      {error, Error}
+      {error, Error, State}
   after 0 ->
     {ok, State}
   end.
 
-%% timeout loop.
-
-timeout_loop(State = #state{pids = Pids}) ->
-  timeout_loop(Pids, get_time(), State).
-
-timeout_loop([], _, State) ->
-  {ok, State};
-timeout_loop([{Start, Timeout, Silent, Ref}|Pids], Now, State) when Now - Start > Timeout ->
-  case Silent of
-    true ->
-      timeout_loop(Pids, Now, State);
-    _ ->
-      {error, {timeout, Ref}}
-  end;
-timeout_loop([_|Pids], Now, State) ->
-  timeout_loop(Pids, Now, State).
-
+%%%%%%%
 %% exec loop.
+%%%%%%%
 
-exec_loop(State) ->
-  {ok, State}.
+exec_loop(State = #state{calls = Calls}) ->
+  exec_loop(Calls, State).
+
+exec_loop([], State) ->
+  {ok, State};
+exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = IsRoot}|_Calls],
+           State = #state{cache = Cache, map = Lookup, context = Context, ref = Ref}) ->
+
+  CacheKey = {Mod, Fun, Args},
+  case maps:find(CacheKey, Cache) of
+    {ok, Value} when IsRoot ->
+      {ok, Value, State};
+    {ok, Value} ->
+      {ok, set_result(Value, Expr, State)};
+    _ ->
+      case Lookup(Mod, Fun, Args, Context, self(), {Ref, ID}) of
+        {ok, Value} when IsRoot ->
+          {ok, Value, State};
+        {ok, Value} ->
+          Cache2 = maps:put(CacheKey, Value, Cache),
+          {ok, set_result(Value, Expr, State#state{cache = Cache2})};
+        Error ->
+          Error
+      end
+  end.
 
 %% cleanup any pending things here
 handle_error(Error, State) ->
@@ -114,9 +151,9 @@ handle_error(Error, State) ->
 %% utils.
 
 %% TODO clear the pid
-%% TODO set the result in `values`
-set_result(_Value, _Ref, State) ->
-  State.
+set_result(Value, #expr{id = ID}, State = #state{values = Values, completed = Completed}) ->
+  Values2 = maps:put(ID, Value, Values),
+  State#state{values = Values2, completed = Completed bor ID}.
 
-get_time() ->
-  0.
+next_id(State = #state{counter = Counter}) ->
+  {trunc(math:pow(2, Counter)), State#state{counter = Counter + 1}}.

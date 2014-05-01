@@ -49,11 +49,6 @@ The runtime behaves lazily, meaning it only evaluates the expressions when it ne
     * error
       * push `error` on `errors`
 
-* each pid in pids
-  * now - start > timeout
-    * push `timeout error` on `errors`
-    * kill pid
-
 * each fn in fns
   * execute function with arguments
     * error
@@ -62,6 +57,8 @@ The runtime behaves lazily, meaning it only evaluates the expressions when it ne
       * push `pid` on `pids` with a start time
     * success
       * set the return value in `values` from `fn` `id`
+
+###### when an error occurs
 
 * each error in errors
   * is silent?
