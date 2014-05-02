@@ -3,7 +3,7 @@
   cache = #{} :: map(),
   cache_hits = 0 :: integer(),
   values = #{} :: map(),
-  vars = #{} :: list(),
+  vars = #{} :: map(),
   pending = [] :: list(),
   counter = 0 :: integer(),
   waiting = 0 :: integer(),
@@ -19,7 +19,7 @@
 
 -record(expr, {
   id :: integer(),
-  type = literal :: atom(),
+  type = literal :: literal | list | tuple | map | call | 'cond' | comprehension | variable,
   line :: integer(),
   value :: term(),
   deps = -1 :: integer(),

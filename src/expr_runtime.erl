@@ -70,16 +70,20 @@ pending_loop([Expr = #expr{type = literal, value = Value}|Rest], Pending, State)
   pending_loop(Rest, Pending, State2);
 
 %%%
+% compound types.
+%%%
+
+
+
+%%%
 % calls.
 %%%
 
 %% the dependencies are ready so add the 'pending' function to the 'calls' list
-pending_loop([Expr = #expr{type = call, status = waiting}|Rest],
-              Pending,
-              State = #state{calls = Calls, values = Values}) when ?IS_READY(Expr, State) ->
-  {ok, Children} = resolve_values(Expr#expr.children, [], Values),
+pending_loop([Expr = #expr{type = call, status = waiting}|Rest], Pending, State) when ?IS_READY(Expr, State) ->
+  {ok, Children} = resolve_values(Expr#expr.children, [], State#state.values),
   Expr2 = Expr#expr{children = Children},
-  pending_loop(Rest, Pending, State#state{calls = [Expr2|Calls]});
+  pending_loop(Rest, Pending, State#state{calls = [Expr2|State#state.calls]});
 
 %%%
 % conditions.
@@ -126,8 +130,7 @@ pending_loop([Expr = #expr{type = comprehension, status = added, children = [Inp
 
 %% for each value in the list push the expression on 'pending'
 pending_loop([Expr = #expr{type = comprehension, tmp = [_, Var, ChildExpr], status = waiting}|Rest],
-              Pending,
-              State) when ?IS_READY(Expr, State) ->
+              Pending, State) when ?IS_READY(Expr, State) ->
   List = maps:get(Expr#expr.deps, State#state.values),
   {ok, Children, State2} = pending_add_comprehension(List, Var, ChildExpr, State, []),
   {Rest2, [Expr2|Pending2], State3} = pending_add(Expr#expr{deps = 0}, [], Children, Rest, Pending, State2),
@@ -138,9 +141,6 @@ pending_loop([Expr = #expr{type = comprehension, tmp = [_, Var, ChildExpr], stat
 pending_loop([Expr = #expr{type = comprehension, status = iterating}|Rest], Pending, State) when ?IS_READY(Expr, State) ->
   {ok, Values} = resolve_values(Expr#expr.children, [], State#state.values),
   pending_alias_value(Values, Expr, Rest, Pending, State);
-
-pending_loop([Expr = #expr{type = comprehension, status = iterating}|Rest], Pending, State) ->
-  pending_loop(Rest, [Expr|Pending], State);
 
 %%%
 % recently added.
@@ -199,14 +199,11 @@ resolve_values([Child|Children], Acc, Values) when is_integer(Child) ->
 resolve_values([#expr{type = literal, value = Value}|Children], Acc, Values) ->
   resolve_values(Children, [Value|Acc], Values).
 
+pending_alias_value(Value, Expr, _, _, State) when Expr#expr.is_root ->
+  {ok, Value, State};
 pending_alias_value(Value, Expr, Rest, Pending, State) ->
-  case Expr#expr.is_root of
-    true ->
-      {ok, Value, State};
-    _ ->
-      State2 = set_result(Value, Expr, State),
-      pending_loop(Rest, Pending, State2)
-  end.
+  State2 = set_result(Value, Expr, State),
+  pending_loop(Rest, Pending, State2).
 
 pending_add_comprehension([], _, _, State, Acc) ->
   {ok, lists:reverse(Acc), State};
