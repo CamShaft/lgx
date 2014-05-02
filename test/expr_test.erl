@@ -332,6 +332,70 @@ test13_fun(users, get_name, [<<"3">>], _, _, _) ->
 test13_fun(_Module, Fun, _Args, _, _, _) ->
   {ok, Fun}.
 
+-define(TEST14, {
+  #state{
+     vars = #{
+       2 => #expr{id = 2, type = call, value = {users, list}, children = [
+         #expr{type = literal, value = atom}
+       ]}
+     },
+     pending = [
+       #expr{id = 1, type = list, is_root = true, children = [
+         2,
+         2,
+         2
+       ]}
+     ],
+     counter = 3
+  },
+  ?NOOP,
+  test13,
+  [[atom], [atom], [atom]]
+}).
+
+-define(TEST15, {
+  #state{
+     vars = #{
+       2 => #expr{id = 2, type = call, value = {users, list}, children = [
+         #expr{type = literal, value = atom}
+       ]}
+     },
+     pending = [
+       #expr{id = 1, type = tuple, is_root = true, children = [
+         2,
+         #expr{type = literal, value = 3.14},
+         2
+       ]}
+     ],
+     counter = 3
+  },
+  ?NOOP,
+  test13,
+  {[atom], 3.14, [atom]}
+}).
+
+-define(TEST16, {
+  #state{
+     vars = #{
+       2 => #expr{id = 2, type = call, value = {users, list}, children = [
+         #expr{type = literal, value = value}
+       ]}
+     },
+     pending = [
+       #expr{id = 1, type = map, is_root = true, children = [
+         #expr{id = 1, type = tuple, children = [
+           #expr{type = literal, value = key},
+           2
+         ]}
+       ]}
+     ],
+     counter = 3
+  },
+  ?NOOP,
+  test13,
+  #{key => [value]}
+}).
+
 -define(TESTS, [
   ?TEST1,
   ?TEST2,
@@ -345,7 +409,10 @@ test13_fun(_Module, Fun, _Args, _, _, _) ->
   ?TEST10,
   ?TEST11,
   ?TEST12,
-  ?TEST13
+  ?TEST13,
+  ?TEST14,
+  ?TEST15,
+  ?TEST16
 ]).
 
 runtime_test_() ->

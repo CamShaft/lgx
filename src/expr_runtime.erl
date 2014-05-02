@@ -73,7 +73,17 @@ pending_loop([Expr = #expr{type = literal, value = Value}|Rest], Pending, State)
 % compound types.
 %%%
 
+pending_loop([Expr = #expr{type = list, status = waiting}|Rest], Pending, State) when ?IS_READY(Expr, State) ->
+  {ok, Children} = resolve_values(Expr#expr.children, [], State#state.values),
+  pending_alias_value(Children, Expr, Rest, Pending, State);
 
+pending_loop([Expr = #expr{type = tuple, status = waiting}|Rest], Pending, State) when ?IS_READY(Expr, State) ->
+  {ok, Children} = resolve_values(Expr#expr.children, [], State#state.values),
+  pending_alias_value(list_to_tuple(Children), Expr, Rest, Pending, State);
+
+pending_loop([Expr = #expr{type = map, status = waiting}|Rest], Pending, State) when ?IS_READY(Expr, State) ->
+  {ok, Children} = resolve_values(Expr#expr.children, [], State#state.values),
+  pending_alias_value(maps:from_list(Children), Expr, Rest, Pending, State);
 
 %%%
 % calls.
@@ -177,7 +187,8 @@ pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child|Children], Rest, Pend
   pending_add(Expr2, [Child|NewChildren], Children, Rest2, Pending, State#state{waiting = Waiting bor Child});
 
 %% add a child call expression
-pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = call}|Children], Rest, Pending, State) ->
+pending_add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = Type}|Children], Rest, Pending,
+            State) when Type =:= call orelse Type =:= list orelse Type =:= tuple orelse Type =:= map->
   {ID, State2} = next_id(State),
   Expr2 = Expr#expr{deps = Deps bor ID},
   Child2 = Child#expr{id = ID},
@@ -260,7 +271,7 @@ exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = 
     {ok, Value} ->
       exec_loop(Rest, Calls, set_result(Value, Expr, State#state{cache_hits = Hits + 1}));
     _ ->
-      case Lookup(Mod, Fun, Args, Context, self(), {Ref, ID}) of
+      case Lookup(Mod, Fun, Args, Context, self(), {Ref, ID, Expr#expr.attrs}) of
         {ok, Value} when IsRoot ->
           {ok, Value, State};
         {ok, Value} ->
@@ -287,12 +298,13 @@ handle_error(Error, State) ->
 %%%%%%%
 
 %% TODO clear the pid
+%% set the value for the id
 set_result(Value, #expr{id = ID}, State) ->
   set_result(Value, ID, State);
 set_result(Value, ID, State = #state{values = Values, completed = Completed}) when is_integer(ID) ->
   Values2 = maps:put(ID, Value, Values),
   State#state{values = Values2, completed = Completed bor ID}.
 
-
+%% return an id (2^n)
 next_id(State = #state{counter = Counter}) ->
   {trunc(math:pow(2, Counter)), State#state{counter = Counter + 1}}.

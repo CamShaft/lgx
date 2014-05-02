@@ -26,5 +26,6 @@
   is_root = false :: boolean(),
   children = [] :: list(),
   status = added :: added | waiting | branching | iterating,
-  tmp :: any()
+  tmp :: any(),
+  attrs :: map()
 }).
