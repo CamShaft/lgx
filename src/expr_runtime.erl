@@ -292,7 +292,7 @@ exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = 
       State2 = set_result(Value, Expr, State#state{cache_hits = Hits + 1}),
       exec_loop(Rest, Calls, State2);
     _ ->
-      case Lookup(Mod, Fun, Args, Context, self(), {ReqRef, ID, Expr#expr.attrs}) of
+      case Lookup(Mod, Fun, Args, Context, self(), {ReqRef, ID}, Expr#expr.attrs) of
         {ok, Pid} when is_pid(Pid) ->
           Ref = monitor(process, Pid),
           Pids = [{Expr, Ref}|State#state.pids],

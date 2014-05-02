@@ -34,7 +34,7 @@ resolve(_Mod, _Fn, _Args, _Context, _Sender, _Ref) ->
 
 %%% runtime
 
--define(NOOP, fun(_Module, _Fun, Args, _, _, _) ->
+-define(NOOP, fun(_Module, _Fun, Args, _, _, _, _) ->
   {ok, Args}
 end).
 
@@ -182,7 +182,7 @@ end).
      ],
      counter = 3
   },
-  fun(Module, _Fun, Args, _, _, _) ->
+  fun(Module, _Fun, Args, _, _, _, _) ->
     {ok, [Module|Args]}
   end,
   {},
@@ -244,7 +244,7 @@ end).
      ],
      counter = 3
   },
-  fun(_Module, Fun, _Args, _, _, _) ->
+  fun(_Module, Fun, _Args, _, _, _, _) ->
     {ok, Fun}
   end,
   {},
@@ -263,7 +263,7 @@ end).
      ],
      counter = 3
   },
-  fun(_Module, Fun, _Args, _, _, _) ->
+  fun(_Module, Fun, _Args, _, _, _, _) ->
     {ok, Fun}
   end,
   {},
@@ -293,7 +293,7 @@ end).
      ],
      counter = 3
   },
-  fun(_Module, Fun, _Args, _, _, _) ->
+  fun(_Module, Fun, _Args, _, _, _, _) ->
     {ok, Fun}
   end,
   {},
@@ -316,20 +316,20 @@ end).
      ],
      counter = 3
   },
-  fun test13_fun/6,
+  fun test13_fun/7,
   test13,
   [<<"Cameron">>, <<"Mike">>, <<"Ben">>]
 }).
 
-test13_fun(users, list, _, _, _, _) ->
+test13_fun(users, list, _, _, _, _, _) ->
   {ok, [<<"1">>, <<"2">>, <<"3">>]};
-test13_fun(users, get_name, [<<"1">>], _, _, _) ->
+test13_fun(users, get_name, [<<"1">>], _, _, _, _) ->
   {ok, <<"Cameron">>};
-test13_fun(users, get_name, [<<"2">>], _, _, _) ->
+test13_fun(users, get_name, [<<"2">>], _, _, _, _) ->
   {ok, <<"Mike">>};
-test13_fun(users, get_name, [<<"3">>], _, _, _) ->
+test13_fun(users, get_name, [<<"3">>], _, _, _, _) ->
   {ok, <<"Ben">>};
-test13_fun(_Module, Fun, _Args, _, _, _) ->
+test13_fun(_Module, Fun, _Args, _, _, _, _) ->
   {ok, Fun}.
 
 -define(TEST14, {
