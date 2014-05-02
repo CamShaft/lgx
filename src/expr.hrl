@@ -27,5 +27,8 @@
   children = [] :: list(),
   status = added :: added | waiting | branching | iterating,
   tmp :: any(),
-  attrs :: map()
+  attrs :: map(),
+  silent = false :: boolean(),
+  timeout = 0 :: integer(),
+  spawn = false :: boolean()
 }).
