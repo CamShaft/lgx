@@ -74,7 +74,7 @@ pending_loop([Expr = #expr{type = literal, value = Value}|Rest], Pending, State)
 %%%
 
 %% the dependencies are ready so add the 'pending' function to the 'calls' list
-pending_loop([Expr = #expr{type = call,status = waiting}|Rest],
+pending_loop([Expr = #expr{type = call, status = waiting}|Rest],
               Pending,
               State = #state{calls = Calls, values = Values}) when ?IS_READY(Expr, State) ->
   {ok, Children} = resolve_values(Expr#expr.children, [], Values),

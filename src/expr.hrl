@@ -18,13 +18,13 @@
 }).
 
 -record(expr, {
-  id,
-  type = literal,
-  line,
-  value,
-  deps = -1,
-  is_root = false,
-  children = [],
-  status = added,
-  tmp
+  id :: integer(),
+  type = literal :: atom(),
+  line :: integer(),
+  value :: term(),
+  deps = -1 :: integer(),
+  is_root = false :: boolean(),
+  children = [] :: list(),
+  status = added :: added | waiting | branching | iterating,
+  tmp :: any()
 }).
