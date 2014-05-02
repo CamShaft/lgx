@@ -317,7 +317,7 @@ end).
      counter = 3
   },
   fun test13_fun/7,
-  test13,
+  {},
   [<<"Cameron">>, <<"Mike">>, <<"Ben">>]
 }).
 
@@ -349,7 +349,7 @@ test13_fun(_Module, Fun, _Args, _, _, _, _) ->
      counter = 3
   },
   ?NOOP,
-  test13,
+  {},
   [[atom], [atom], [atom]]
 }).
 
@@ -370,7 +370,7 @@ test13_fun(_Module, Fun, _Args, _, _, _, _) ->
      counter = 3
   },
   ?NOOP,
-  test13,
+  {},
   {[atom], 3.14, [atom]}
 }).
 
@@ -392,7 +392,38 @@ test13_fun(_Module, Fun, _Args, _, _, _, _) ->
      counter = 3
   },
   ?NOOP,
-  test13,
+  {},
+  #{key => [value]}
+}).
+
+-define(TEST17, {
+  #state{
+     vars = #{
+       8 => #expr{id = 8, type = call, spawn = true, value = {users, list}, children = [
+         #expr{type = literal, value = third}
+       ]},
+       4 => #expr{id = 4, type = call, spawn = true, value = {users, list}, children = [
+         #expr{type = literal, value = second}
+       ]},
+       2 => #expr{id = 2, type = call, spawn = true, value = {users, list}, children = [
+         #expr{type = literal, value = first}
+       ]}
+     },
+     pending = [
+       #expr{id = 1, type = tuple, is_root = true, children = [
+         2,
+         4,
+         8
+       ]}
+     ],
+     counter = 3
+  },
+  fun(_Module, _Fun, Args, _, _, _, _) ->
+    io:format("sleeping"),
+    timer:sleep(100),
+    {ok, Args}
+  end,
+  {},
   #{key => [value]}
 }).
 
@@ -412,7 +443,8 @@ test13_fun(_Module, Fun, _Args, _, _, _, _) ->
   ?TEST13,
   ?TEST14,
   ?TEST15,
-  ?TEST16
+  ?TEST16,
+  ?TEST17
 ]).
 
 runtime_test_() ->

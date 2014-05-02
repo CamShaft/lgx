@@ -2,6 +2,9 @@
 
 -export([execute/3]).
 
+%% private
+-export([exec_async/9]).
+
 -include("expr.hrl").
 
 -define(IS_READY(Expr, State), Expr#expr.deps band State#state.completed =:= Expr#expr.deps).
@@ -238,14 +241,37 @@ replace_variable(Var, Value, [Expr|Rest], Acc) ->
 %%%%%%%
 
 receive_loop(State) ->
+  Ref = State#state.ref,
   receive
-    {ok, Value, Ref} ->
-      receive_loop(set_result(Value, Ref, State));
+    {ok, Value, {Ref, ID}} when is_integer(ID) ->
+      State2 = set_result(Value, ID, State),
+      receive_loop(State2);
     {error, Error, _Ref} ->
       {error, Error, State}
+    %% {'DOWN', _ChildRef, _, _, normal} ->
+    %%   %% TODO remove from pids
+    %%   receive_loop(State);
+    %% Error ->
+    %%   {error, Error, State}
   after 0 ->
-    %% TODO verify that the only calls we're waiting on are async ones
     {ok, State}
+    %% case length(State#state.pids) of
+    %%   0 ->
+    %%     {ok, State};
+    %%   _ when length(State#state.calls) > 0 ->
+    %%     {ok, State};
+    %%   _ ->
+    %%     receive
+    %%       {ok, Value, {Ref, ID}} ->
+    %%         State2 = set_result(Value, ID, State),
+    %%         receive_loop(State2);
+    %%       {'DOWN', _ChildRef, _, _, normal} ->
+    %%         %% TODO remove from pids
+    %%         receive_loop(State);
+    %%       Error ->
+    %%         {error, Error, State}
+    %%     end
+    %% end
   end.
 
 %%%%%%%
@@ -261,7 +287,7 @@ exec_loop(State = #state{calls = Calls}) ->
 exec_loop([], Calls, State) ->
   {ok, State#state{calls = Calls}};
 
-exec_loop([Expr = #expr{spawn = Spawn, timeout = Timeout}|Rest], Calls, State) when Spawn or Timeout > 0->
+exec_loop([Expr = #expr{spawn = Spawn, timeout = Timeout}|Rest], Calls, State) when Spawn orelse Timeout > 0 ->
   ReqRef = State#state.ref,
   Lookup = State#state.map,
   Context = State#state.context,
@@ -273,7 +299,7 @@ exec_loop([Expr = #expr{spawn = Spawn, timeout = Timeout}|Rest], Calls, State) w
   %% TODO lookup in cache
   _CacheKey = {Mod, Fun, Args},
 
-  {ok, Ref} = spawn_monitor(?MODULE, exec_async, [Lookup, Timeout, Mod, Fun, Args, Context, self(), {ReqRef, ID}, Attrs]),
+  {_Pid, Ref} = spawn_monitor(?MODULE, exec_async, [Lookup, Timeout, Mod, Fun, Args, Context, self(), {ReqRef, ID}, Attrs]),
   Pids = [{Expr, Ref}|State#state.pids],
   exec_loop(Rest, Calls, State#state{pids = Pids});
 
