@@ -244,6 +244,7 @@ receive_loop(State) ->
     {error, Error, _Ref} ->
       {error, Error, State}
   after 0 ->
+    %% TODO verify that the only calls we're waiting on are async ones
     {ok, State}
   end.
 
@@ -256,33 +257,85 @@ exec_loop(State = #state{calls = []}) ->
 exec_loop(State = #state{calls = Calls}) ->
   exec_loop(Calls, [], State).
 
+%% TODO async functions
 exec_loop([], Calls, State) ->
   {ok, State#state{calls = Calls}};
+
+exec_loop([Expr = #expr{spawn = Spawn, timeout = Timeout}|Rest], Calls, State) when Spawn or Timeout > 0->
+  ReqRef = State#state.ref,
+  Lookup = State#state.map,
+  Context = State#state.context,
+  {Mod, Fun} = Expr#expr.value,
+  Args = Expr#expr.children,
+  ID = Expr#expr.id,
+  Attrs = Expr#expr.attrs,
+
+  %% TODO lookup in cache
+  _CacheKey = {Mod, Fun, Args},
+
+  {ok, Ref} = spawn_monitor(?MODULE, exec_async, [Lookup, Timeout, Mod, Fun, Args, Context, self(), {ReqRef, ID}, Attrs]),
+  Pids = [{Expr, Ref}|State#state.pids],
+  exec_loop(Rest, Calls, State#state{pids = Pids});
+
 exec_loop([Expr = #expr{value = {Mod, Fun}, children = Args, id = ID, is_root = IsRoot}|Rest],
            Calls,
-           State = #state{cache = Cache, map = Lookup, context = Context, ref = Ref}) ->
-  %% TODO spawn
-  %% TODO async functions
+           State = #state{cache = Cache, map = Lookup, context = Context, ref = ReqRef}) ->
+
   CacheKey = {Mod, Fun, Args},
   Hits = State#state.cache_hits,
   case maps:find(CacheKey, Cache) of
+    % {ok, {'__PENDING__'}} -> % happens when a function is async
+    %  TODO
     {ok, Value} when IsRoot ->
       {ok, Value, State#state{cache_hits = Hits + 1}};
     {ok, Value} ->
-      exec_loop(Rest, Calls, set_result(Value, Expr, State#state{cache_hits = Hits + 1}));
+      State2 = set_result(Value, Expr, State#state{cache_hits = Hits + 1}),
+      exec_loop(Rest, Calls, State2);
     _ ->
-      case Lookup(Mod, Fun, Args, Context, self(), {Ref, ID, Expr#expr.attrs}) of
+      case Lookup(Mod, Fun, Args, Context, self(), {ReqRef, ID, Expr#expr.attrs}) of
+        {ok, Pid} when is_pid(Pid) ->
+          Ref = monitor(process, Pid),
+          Pids = [{Expr, Ref}|State#state.pids],
+          exec_loop(Rest, Calls, State#state{pids = Pids});
+        {ok, Ref} when is_reference(Ref) ->
+          Pids = [{Expr, Ref}|State#state.pids],
+          exec_loop(Rest, Calls, State#state{pids = Pids});
         {ok, Value} when IsRoot ->
           {ok, Value, State};
         {ok, Value} ->
           Cache2 = maps:put(CacheKey, Value, Cache),
-          exec_loop(Rest, Calls, set_result(Value, Expr, State#state{cache = Cache2}));
+          State2 = set_result(Value, Expr, State#state{cache = Cache2}),
+          exec_loop(Rest, Calls, State2);
         {ok, Value, Context2} ->
           Cache2 = maps:put(CacheKey, Value, Cache),
-          exec_loop(Rest, Calls, set_result(Value, Expr, State#state{cache = Cache2, context = Context2}));
+          State2 = set_result(Value, Expr, State#state{cache = Cache2, context = Context2}),
+          exec_loop(Rest, Calls, State2);
         Error ->
           Error
       end
+  end.
+
+exec_async(Lookup, Timeout, Mod, Fun, Args, Context, Parent, Ref, Attrs) when Timeout > 0 ->
+  {ok, Tref} = timer:kill_after(Timeout),
+  exec_async(Lookup, Tref, Mod, Fun, Args, Context, Parent, Ref, Attrs);
+exec_async(Lookup, Tref, Mod, Fun, Args, Context, Parent, Ref, Attrs) ->
+  Result = Lookup(Mod, Fun, Args, Context, Parent, Ref, Attrs),
+
+  %% ignore the error if it's not an TRef since there's no easy way to check
+  %% http://www.erlang.org/doc/man/timer.html
+  timer:cancel(Tref),
+
+  Parent ! case Result of
+    {ok, Value} ->
+      {ok, Value, Ref};
+    {ok, Value, Context} ->
+      {ok, Value, Context, Ref};
+    {error, Reason} ->
+      {error, Reason, Ref};
+    {error, Reason, Context} ->
+      {error, Reason, Context, Ref};
+    _ ->
+      {error, {invalid_return, Result}, Ref}
   end.
 
 %%%%%%%
@@ -301,9 +354,9 @@ handle_error(Error, State) ->
 %% set the value for the id
 set_result(Value, #expr{id = ID}, State) ->
   set_result(Value, ID, State);
-set_result(Value, ID, State = #state{values = Values, completed = Completed}) when is_integer(ID) ->
+set_result(Value, ID, State = #state{values = Values, completed = Completed, waiting = Waiting}) when is_integer(ID) ->
   Values2 = maps:put(ID, Value, Values),
-  State#state{values = Values2, completed = Completed bor ID}.
+  State#state{values = Values2, completed = Completed bor ID, waiting = Waiting bxor ID}.
 
 %% return an id (2^n)
 next_id(State = #state{counter = Counter}) ->
