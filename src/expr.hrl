@@ -12,6 +12,7 @@
   map :: fun(),
   context :: any(),
   iterations = 0 :: integer(),
+  stalled = 0 :: integer(),
   pids = [] :: list(),
   calls = [] :: list()
 }).

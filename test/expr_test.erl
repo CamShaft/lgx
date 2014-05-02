@@ -34,8 +34,7 @@ resolve(_Mod, _Fn, _Args, _Context, _Sender, _Ref) ->
 
 %%% runtime
 
--define(NOOP, fun(Module, Fun, Args, _, _, _) ->
-  io:format("~p:~p(~p)~n", [Module, Fun, Args]),
+-define(NOOP, fun(_Module, _Fun, Args, _, _, _) ->
   {ok, Args}
 end).
 

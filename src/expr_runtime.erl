@@ -15,7 +15,7 @@ execute(State, MapFun, Context) ->
 %% main loop.
 %%%%%%%
 
-loop(State = #state{iterations = 1000}) ->
+loop(State = #state{stalled = 100}) ->
   {error, infinite_loop, State};
 loop(State) ->
   case pending_loop(State) of
@@ -35,8 +35,10 @@ loop(State) ->
             %% we're done!
             {ok, Value, ExecState} ->
               {ok, Value, ExecState};
+            {ok, State = #state{iterations = Iter, stalled = Stalled}} ->
+               loop(State#state{iterations = Iter + 1, stalled = Stalled + 1});
             {ok, ExecState = #state{iterations = Iter}} ->
-               loop(ExecState#state{iterations = Iter + 1})
+               loop(ExecState#state{iterations = Iter + 1, stalled = 0})
           end
       end
   end.
