@@ -301,6 +301,38 @@ end).
   foo
 }).
 
+-define(TEST13, {
+  #state{
+     vars = #{
+       2 => #expr{id = 2, type = call, value = {users, list}, children = []}
+     },
+     pending = [
+       #expr{id = 1, type = comprehension, is_root = true, children = [
+         2,
+         'User',
+         #expr{type = call, value = {users, get_name}, children = [
+           #expr{type = variable, value = 'User'}
+         ]}
+       ]}
+     ],
+     counter = 3
+  },
+  fun test13_fun/6,
+  test13,
+  [<<"Cameron">>, <<"Mike">>, <<"Ben">>]
+}).
+
+test13_fun(users, list, _, _, _, _) ->
+  {ok, [<<"1">>, <<"2">>, <<"3">>]};
+test13_fun(users, get_name, [<<"1">>], _, _, _) ->
+  {ok, <<"Cameron">>};
+test13_fun(users, get_name, [<<"2">>], _, _, _) ->
+  {ok, <<"Mike">>};
+test13_fun(users, get_name, [<<"3">>], _, _, _) ->
+  {ok, <<"Ben">>};
+test13_fun(_Module, Fun, _Args, _, _, _) ->
+  {ok, Fun}.
+
 -define(TESTS, [
   ?TEST1,
   ?TEST2,
@@ -313,7 +345,8 @@ end).
   ?TEST9,
   ?TEST10,
   ?TEST11,
-  ?TEST12
+  ?TEST12,
+  ?TEST13
 ]).
 
 runtime_test_() ->

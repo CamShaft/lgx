@@ -251,65 +251,37 @@ or
 #{
   type => comprehension,
   children => #{
-    assignment => #{
-      type => assign,
-      value => 'User',
-      children => #{
-        0 => #{
-          type => list,
-          children => #{
-            0 => #{
-              type => literal,
-              value => <<"1">>
-            },
-            1 => #{
-              type => literal,
-              value => <<"2">>
-            },
-            2 => #{
-              type => literal,
-              value => <<"3">>
-            }
+    list => #{
+      0 => #{
+        type => list,
+        children => #{
+          0 => #{
+            type => literal,
+            value => <<"1">>
+          },
+          1 => #{
+            type => literal,
+            value => <<"2">>
+          },
+          2 => #{
+            type => literal,
+            value => <<"3">>
           }
         }
       }
     },
-    filters => #{
+    variable => #{
+      type => variable
+      value => 'User'
+    },
+    expression => #{
       0 => #{
         type => call,
-        value => {users, is_allowed},
+        value => {users, get},
         children => #{
           0 => #{
             type => variable,
             value => 'User'
-          }
-        }
-      }
-    },
-    body => #{
-      0 => #{
-        type => assign,
-        value => 'User2',
-        children => #{
-          0 => #{
-            type => call,
-            value => {users, fetch_user},
-            children => #{
-              0 => #{
-                type => variable,
-                value => 'User'
-              }
-            }
-          }
-        }
-      },
-      1 => #{
-        type => call,
-        value => {users, format},
-        children => #{
-          0 => #{
-            type => variable,
-            value => 'User2'
           }
         }
       }
