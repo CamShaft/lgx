@@ -8,6 +8,7 @@
   fun to_records/2,
   fun mark_root/2,
   fun init_state/2
+  %% fun extract_variables/2
 ]).
 
 compile(Exprs) ->
@@ -16,12 +17,8 @@ compile(Exprs) ->
 compile(Exprs, []) ->
   {ok, Exprs};
 compile(Exprs, [Pass|Passes]) ->
-  case Pass(Exprs, []) of
-    {ok, Exprs2} ->
-      compile(Exprs2, Passes);
-    Error ->
-      Error
-  end.
+  {ok, Exprs2} = Pass(Exprs, []),
+  compile(Exprs2, Passes).
 
 %% convert the maps to the internal records
 to_records([], Acc) ->
@@ -60,6 +57,8 @@ child_records(#{type := comprehension}, #{assignment := #{type := assign, value 
     Expression
   ], []),
   {ok, [ListRec, Var, ExprRec]};
+child_records(#{type := 'assign'}, #{0 := Expr}) ->
+  to_records([Expr], []);
 child_records(#{type := variable}, undefined) ->
   {ok, undefined};
 child_records(#{type := literal}, undefined) ->
@@ -91,3 +90,4 @@ mark_root(Exprs, _) ->
 
 init_state(Exprs, _) ->
   {ok, #state{pending = Exprs}}.
+

@@ -1,0 +1,13 @@
+#{
+  type => 'cond',
+  children => #{
+    0 => #{
+      type => literal,
+      value => {}
+    },
+    1 => #{
+      type => call,
+      value => {module, truths}
+    }
+  }
+}.

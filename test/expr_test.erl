@@ -28,6 +28,12 @@ comprehension_test_() ->
 conditional_test_() ->
   [fun() -> expr_apply(Test) end || Test <- ?WILDCARD("conditional")].
 
+%% assign_test_() ->
+%%   [fun() -> expr_apply(Test) end || Test <- ?WILDCARD("assign")].
+
+error_test_() ->
+  [fun() -> expr_error(Test) end || Test <- ?WILDCARD("error")].
+
 expr_apply(Test) ->
   {ok, Forms} = file:consult(Test ++ ".ast"),
 
@@ -45,6 +51,22 @@ expr_apply(Test) ->
   {ok, Actual, _State} = expr:apply(Forms, fun resolve/7, Context),
   ?assertEqual(Expected, Actual).
 
+expr_error(Test) ->
+  {ok, Forms} = file:consult(Test ++ ".ast"),
+
+  {ok, Context} = case file:consult(Test ++ ".context") of
+    {ok, [C]} ->
+      {ok, C};
+    {error, enoent} ->
+      {ok, []};
+    Error ->
+      Error
+  end,
+
+  {error, _Error, _State} = expr:apply(Forms, fun resolve/7, Context).
+
+resolve(_Mod, error, [Error], _Context, _Sender, _Ref, _Attrs) ->
+  {error, Error};
 resolve(Mod, Fn, Args, _Context, _Sender, _Ref, _Attrs) ->
   {ok, {Mod, Fn, Args}}.
 
