@@ -3,17 +3,33 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("../src/expr.hrl").
 
-%% expr_test_() ->
-expr_test() ->
+-define(WILDCARD(Type), (begin
   {ok, CWD} = file:get_cwd(),
-  Folder = filename:join(CWD, "test/data"),
-  Tests = filelib:wildcard(Folder ++ "/*.ast"),
-  [fun() -> expr(filename:join(Folder, filename:basename(Test, ".ast"))) end || Test <- Tests].
+  Folder = case filename:basename(CWD) of
+    ".eunit" -> filename:join(CWD, "../test/data");
+    _ -> filename:join(CWD, "test/data")
+  end,
+  Tests = filelib:wildcard(Folder ++ "/" ++ Type ++ ".*.ast"),
+  [filename:join(Folder, filename:basename(Test, ".ast")) || Test <- Tests]
+end)).
 
-expr(Test) ->
+literal_test_() ->
+  [fun() -> expr_apply(Test) end || Test <- ?WILDCARD("literal")].
+
+compound_test_() ->
+  [fun() -> expr_apply(Test) end || Test <- ?WILDCARD("compound")].
+
+call_test_() ->
+  [fun() -> expr_apply(Test) end || Test <- ?WILDCARD("call")].
+
+comprehension_test_() ->
+  [fun() -> expr_apply(Test) end || Test <- ?WILDCARD("comprehension")].
+
+conditional_test_() ->
+  [fun() -> expr_apply(Test) end || Test <- ?WILDCARD("conditional")].
+
+expr_apply(Test) ->
   {ok, Forms} = file:consult(Test ++ ".ast"),
-
-  {ok, AST} = expr:compile(Forms),
 
   {ok, Context} = case file:consult(Test ++ ".context") of
     {ok, [C]} ->
@@ -26,11 +42,11 @@ expr(Test) ->
 
   {ok, [Expected]} = file:consult(Test ++ ".out"),
 
-  {ok, Actual} = expr:execute(AST, fun resolve/6, Context),
+  {ok, Actual, _State} = expr:apply(Forms, fun resolve/7, Context),
   ?assertEqual(Expected, Actual).
 
-resolve(_Mod, _Fn, _Args, _Context, _Sender, _Ref) ->
-  {ok, todo}.
+resolve(Mod, Fn, Args, _Context, _Sender, _Ref, _Attrs) ->
+  {ok, {Mod, Fn, Args}}.
 
 %%% runtime
 
@@ -443,8 +459,7 @@ test13_fun(_Module, Fun, _Args, _, _, _, _) ->
   ?TEST13,
   ?TEST14,
   ?TEST15,
-  ?TEST16,
-  ?TEST17
+  ?TEST16
 ]).
 
 runtime_test_() ->

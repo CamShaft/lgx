@@ -1,0 +1,5 @@
+[{maps, get, [name, <<"1">>]},
+ {maps, get, [name, <<"2">>]},
+ {maps, get, [name, <<"3">>]},
+ {maps, get, [name, <<"4">>]},
+ {maps, get, [name, <<"5">>]}].

@@ -251,43 +251,53 @@ or
 #{
   type => comprehension,
   children => #{
-    list => #{
-      0 => #{
-        type => list,
-        children => #{
-          0 => #{
-            type => literal,
-            value => <<"1">>
-          },
-          1 => #{
-            type => literal,
-            value => <<"2">>
-          },
-          2 => #{
-            type => literal,
-            value => <<"3">>
+    assignment => #{
+      type => assign,
+      value => 'User',
+      children => #{
+        0 => #{
+          type => list,
+          children => #{
+            0 => #{
+              type => literal,
+              value => <<"1">>
+            },
+            1 => #{
+              type => literal,
+              value => <<"2">>
+            },
+            2 => #{
+              type => literal,
+              value => <<"3">>
+            },
+            3 => #{
+              type => literal,
+              value => <<"4">>
+            },
+            4 => #{
+              type => literal,
+              value => <<"5">>
+            }
           }
         }
       }
     },
-    variable => #{
-      type => variable
-      value => 'User'
-    },
     expression => #{
-      0 => #{
-        type => call,
-        value => {users, get},
-        children => #{
-          0 => #{
-            type => variable,
-            value => 'User'
-          }
+      type => call,
+      value => {maps, get},
+      children => #{
+        0 => #{
+          type => literal,
+          value => name
+        },
+        1 => #{
+          type => variable,
+          value => 'User'
         }
       }
     }
   }
-}
+}.
 ```
 
 #### Variables

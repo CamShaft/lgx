@@ -109,12 +109,12 @@ pending_loop([Expr = #expr{type = 'cond', status = added, children = [Cond|_] = 
 
 %% evaluate the selected branch of the condition
 pending_loop([Expr = #expr{type = 'cond', status = waiting}|Rest], Pending, State) when ?IS_READY(Expr, State) ->
-  Children = Expr#expr.tmp,
-  Branch = case maps:get(Expr#expr.deps, State#state.values) of
+  {ok, [Value]} = resolve_values(Expr#expr.children, [], State#state.values),
+  Branch = case Value of
     true ->
-      lists:nth(2, Children);
+      lists:nth(2, Expr#expr.tmp);
     false ->
-      lists:nth(3, Children);
+      lists:nth(3, Expr#expr.tmp);
     Arg ->
       {error, {cond_badarg, Arg}, State}
   end,
@@ -129,7 +129,7 @@ pending_loop([Expr = #expr{type = 'cond', status = waiting}|Rest], Pending, Stat
 
 %% set the result of the branch
 pending_loop([Expr = #expr{type = 'cond', status = branching}|Rest], Pending, State) when ?IS_READY(Expr, State) ->
-  Value = maps:get(Expr#expr.deps, State#state.values),
+  {ok, [Value]} = resolve_values(Expr#expr.children, [], State#state.values),
   pending_alias_value(Value, Expr, Rest, Pending, State);
 
 %%%
@@ -230,7 +230,7 @@ replace_variable(_, _, [], Acc) ->
   {ok, lists:reverse(Acc)};
 replace_variable(Var, Value, [#expr{type = variable, value = Var}|Rest], Acc) ->
   replace_variable(Var, Value, Rest, [Value|Acc]);
-replace_variable(Var, Value, [Expr = #expr{children = Children}|Rest], Acc) ->
+replace_variable(Var, Value, [Expr = #expr{children = Children}|Rest], Acc) when is_list(Children) ->
   {ok, Children2} = replace_variable(Var, Value, Children, []),
   replace_variable(Var, Value, Rest, [Expr#expr{children = Children2}|Acc]);
 replace_variable(Var, Value, [Expr|Rest], Acc) ->
