@@ -181,15 +181,5 @@ add_comprehension([], _, _, State, Acc) ->
   {ok, lists:reverse(Acc), State};
 add_comprehension([Value|Rest], Var, Expr, State, Acc) ->
   Literal = #expr{type = literal, value = Value},
-  {ok, [Expr2]} = replace_variable(Var, Literal, [Expr], []),
+  {ok, [Expr2]} = expr_util:replace_variable(Var, Literal, [Expr], []),
   add_comprehension(Rest, Var, Expr, State, [Expr2|Acc]).
-
-replace_variable(_, _, [], Acc) ->
-  {ok, lists:reverse(Acc)};
-replace_variable(Var, Value, [#expr{type = variable, value = Var}|Rest], Acc) ->
-  replace_variable(Var, Value, Rest, [Value|Acc]);
-replace_variable(Var, Value, [Expr = #expr{children = Children}|Rest], Acc) when is_list(Children) ->
-  {ok, Children2} = replace_variable(Var, Value, Children, []),
-  replace_variable(Var, Value, Rest, [Expr#expr{children = Children2}|Acc]);
-replace_variable(Var, Value, [Expr|Rest], Acc) ->
-  replace_variable(Var, Value, Rest, [Expr|Acc]).

@@ -11,7 +11,17 @@
   }
 }.
 #{
-  type => variable,
-  value => 'MyVar',
-  line => 2
+  type => list,
+  children => #{
+    0 => #{
+      type => variable,
+      value => 'MyVar',
+      line => 2
+    },
+    1 => #{
+      type => variable,
+      value => 'MyVar',
+      line => 2
+    }
+  }
 }.

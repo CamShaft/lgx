@@ -5,10 +5,10 @@
 -include("expr.hrl").
 
 -define(PASSES, [
-  fun to_records/2,
-  fun mark_root/2,
-  fun init_state/2
-  %% fun extract_variables/2
+  fun to_records/1,
+  fun mark_root/1,
+  fun init_state/1,
+  fun rename_variables/1
 ]).
 
 compile(Exprs) ->
@@ -17,8 +17,11 @@ compile(Exprs) ->
 compile(Exprs, []) ->
   {ok, Exprs};
 compile(Exprs, [Pass|Passes]) ->
-  {ok, Exprs2} = Pass(Exprs, []),
+  {ok, Exprs2} = Pass(Exprs),
   compile(Exprs2, Passes).
+
+to_records(Exprs) ->
+  to_records(Exprs, []).
 
 %% convert the maps to the internal records
 to_records([], Acc) ->
@@ -84,10 +87,37 @@ get_value(Key, Map) ->
       undefined
   end.
 
-mark_root(Exprs, _) ->
+mark_root(Exprs) ->
   [Expr|Rest] = lists:reverse(Exprs),
   {ok, lists:reverse([Expr#expr{is_root = true}|Rest])}.
 
-init_state(Exprs, _) ->
-  {ok, #state{pending = Exprs}}.
+init_state(Exprs) ->
+  [Root|Rest] = lists:reverse(Exprs),
+  State = #state{pending = [Root]},
+  State2 = lists:foldl(fun set_vars/2, State, Rest),
+  {ok, State2}.
 
+set_vars(#expr{type = assign, value = Var, children = [Expr]}, State) when is_atom(Var) ->
+  Vars = State#state.vars,
+  State#state{vars = maps:put(Var, Expr, Vars)}.
+
+rename_variables(State) ->
+  Vars = State#state.vars,
+  {Mappings, State2} = maps:fold(fun rename_variables/3, {#{}, State}, Vars),
+  State3 = maps:fold(fun replace_variables/3, State2, Mappings),
+  {ok, State3}.
+
+rename_variables(Key, _Val, {Mappings, State}) ->
+  {ID, State2} = expr_util:next_id(State),
+  {maps:put(Key, ID, Mappings), State2}.
+
+replace_variables(Var, ID, State) ->
+  Expr = maps:get(Var, State#state.vars),
+  Vars = maps:remove(Var, State#state.vars),
+  {ok, Pending} = expr_util:replace_variable(Var, ID, State#state.pending, []),
+  Vars2 = maps:fold(fun(Key, Val, Acc) ->
+    {ok, [Val2]} = expr_util:replace_variable(Var, ID, [Val], []),
+    maps:put(Key, Val2, Acc)
+  end, #{}, Vars),
+  Vars3 = maps:put(ID, Expr#expr{id = ID}, Vars2),
+  State#state{vars = Vars3, pending = Pending}.

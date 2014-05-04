@@ -1,0 +1,25 @@
+#{
+  type => tuple,
+  children => #{
+    0 => #{
+      type => call,
+      value => {module, cache},
+      children => #{
+        0 => #{
+          type => literal,
+          value => 1
+        }
+      }
+    },
+    1 => #{
+      type => call,
+      value => {module, cache},
+      children => #{
+        0 => #{
+          type => literal,
+          value => 1
+        }
+      }
+    }
+  }
+}.
