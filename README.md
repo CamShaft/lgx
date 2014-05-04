@@ -6,65 +6,15 @@ Simple parallel expression engine for erlang.
 Usage
 -----
 
-### Forms
+### Forms and expressions
 
-Every form has a `type` field. It also should set `line` to get helpful errors that map to the correct line of the original source. `value` and `children` can be present depending on the type.
+Every form and/or has a `type` field. It also should set `line` to get helpful errors that map to the correct line of the original source. `value` and `children` can be present depending on the type.
 
 [calls](#call), [assignments](#assign) and [variables](#variable) may also have the following fields:
 
 * `silent` - return undefined if the expression fails
 * `timeout` - timeout after ms
 * `spawn` - spawn the function in a wrapper process for an async response
-
-### Runtime
-
-The runtime behaves lazily, meaning it only evaluates the expressions when it needs the answer. It also uses a kind of error monad to handle exceptions.
-
-#### steps
-
-##### before
-
-* push the root `expr` onto `pending`
-
-##### loop
-
-* each expr in pending
-  * is it root and is it done?
-    * yes
-      * return the value from `values`
-    * no
-      * are the dependencies ready?
-        * yes
-          * push the `expr` on `fns`
-        * no
-          * push the dependencies on `pending`
-
-* while messages
-  * recieve with timeout 0
-    * timeout
-      * exit loop
-    * value
-      * set the return value in `values` from `pid` `id`
-      * remove `pid` from `pids`
-    * error
-      * push `error` on `errors`
-
-* each fn in fns
-  * execute function with arguments
-    * error
-      * push `error` on `errors`
-    * pid
-      * push `pid` on `pids` with a start time
-    * success
-      * set the return value in `values` from `fn` `id`
-
-###### when an error occurs
-
-* each error in errors
-  * is silent?
-    * set `fn` result to `undefined`
-  * otherwise
-    * crash
 
 ### Types
 
@@ -326,76 +276,49 @@ or
 }
 ```
 
-### Example
+### Runtime
 
-```erlang
-[
-  #{
-    type => assignment,
-    value => 'MyVar',
-    children => #{
-      0 => #{
-        type => literal,
-        value => <<"my-value">>
-      }
-    }
-  },
-  #{
-    type => call,
-    value => {mod, func},
-    children => #{
-      0 => #{
-        type => literal,
-        value => 1
-      },
-      1 => #{
-      type => list,
-        children => #{
-          0 => #{
-            type => literal,
-            value => 3.14
-          },
-          1 => #{
-            type => tuple,
-            children => #{
-              0 => #{
-                type => literal,
-                value => testing
-              },
-              1 => #{
-                type => variable,
-                value => 'MyVar'
-              }
-            }
-          },
-          2 => #{
-            type => map,
-            children => #{
-              key1 => #{
-                type => cond,
-                children => #{
-                  0 => #{
-                    type => literal,
-                      value => true
-                  },
-                  1 => #{
-                    type => literal,
-                    value => <<"hello!">>
-                  },
-                  2 => #{
-                    type => literal,
-                    value => <<"world">>
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-].
-```
+The runtime behaves lazily, meaning it only evaluates the expressions when it needs the answer. It also uses a kind of error monad to handle exceptions.
+
+#### loop
+
+* each expr in pending
+  * is it root and is it done?
+    * yes
+      * return the value from `values`
+    * no
+      * are the dependencies ready?
+        * yes
+          * push the `expr` on `fns`
+        * no
+          * push the dependencies on `pending`
+
+* while messages
+  * recieve with timeout 0
+    * timeout
+      * exit loop
+    * value
+      * set the return value in `values` from `pid` `id`
+      * remove `pid` from `pids`
+    * error
+      * push `error` on `errors`
+
+* each fn in fns
+  * execute function with arguments
+    * error
+      * push `error` on `errors`
+    * pid
+      * push `pid` on `pids` with a start time
+    * success
+      * set the return value in `values` from `fn` `id`
+
+#### when an error occurs
+
+* each error in errors
+  * is silent?
+    * set `fn` result to `undefined`
+  * otherwise
+    * crash
 
 Tests
 -----
