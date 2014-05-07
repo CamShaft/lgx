@@ -56,7 +56,7 @@ Every form and/or has a `type` field. It also should set `line` to get helpful e
 }
 ```
 
-#### Nested
+#### Compound
 
 ##### list
 
