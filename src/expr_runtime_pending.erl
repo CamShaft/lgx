@@ -136,7 +136,7 @@ add(Expr, NewChildren, [], Rest, Pending, State) ->
 
 %% pull the child from the vars map if integer
 add(Expr = #expr{deps = Deps}, NewChildren, [Child|Children], Rest, Pending,
-    State = #state{vars = Vars, waiting = Waiting}) when is_integer(Child)  ->
+    State = #state{vars = Vars, waiting = Waiting}) when is_integer(Child) ->
   ChildExpr = maps:get(Child, Vars),
   Expr2 = Expr#expr{deps = Deps bor Child},
   Rest2 = case Child band Waiting =:= 0 of
@@ -148,8 +148,8 @@ add(Expr = #expr{deps = Deps}, NewChildren, [Child|Children], Rest, Pending,
   add(Expr2, [Child|NewChildren], Children, Rest2, Pending, State#state{waiting = Waiting bor Child});
 
 %% add a child call expression
-add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = Type}|Children], Rest, Pending,
-    State) when Type =:= call orelse Type =:= list orelse Type =:= tuple orelse Type =:= map->
+add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = Type}|Children], Rest, Pending, State) when
+    Type =:= call orelse Type =:= list orelse Type =:= tuple orelse Type =:= map orelse Type =:= 'cond' orelse Type =:= comprehension ->
   {ID, State2} = expr_util:next_id(State),
   Expr2 = Expr#expr{deps = Deps bor ID},
   Child2 = Child#expr{id = ID},
