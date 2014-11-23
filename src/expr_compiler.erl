@@ -44,7 +44,7 @@ child_records(#{type := Type}, Children) when Type =:= list orelse Type =:= tupl
 child_records(#{type := map}, Children) ->
   KVs = [begin
     {ok, [KV]} = to_records([#{type => tuple, line => get_value(line, Val), children => #{
-      0 => #{type => literal, value => Key},
+      0 => map_key_to_expr(Key),
       1 => Val
     }}], []),
     KV
@@ -66,6 +66,11 @@ child_records(#{type := variable}, undefined) ->
   {ok, undefined};
 child_records(#{type := literal}, undefined) ->
   {ok, undefined}.
+
+map_key_to_expr(Key = #{type := _T}) ->
+  Key;
+map_key_to_expr(Key) ->
+  #{type => literal, value => Key}.
 
 to_record(Expr) ->
   #expr{

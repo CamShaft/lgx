@@ -1,0 +1,15 @@
+#{
+  type => map,
+  line => 1,
+  children => #{
+    #{
+      type => literal,
+      value => did_it_work,
+      line => 2
+    } => #{
+      type => literal,
+      value => it_worked,
+      line => 2
+    }
+  }
+}.
