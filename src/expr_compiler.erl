@@ -97,7 +97,7 @@ init_state(Exprs) ->
   State2 = lists:foldl(fun set_vars/2, State, Rest),
   {ok, State2}.
 
-set_vars(#expr{type = assign, value = Var, children = [Expr]}, State) when is_atom(Var) ->
+set_vars(#expr{type = assign, value = Var, children = [Expr]}, State) ->
   Vars = State#state.vars,
   State#state{vars = maps:put(Var, Expr, Vars)}.
 
