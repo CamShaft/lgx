@@ -13,7 +13,7 @@
   context :: any(),
   iterations = 0 :: integer(),
   stalled = 0 :: integer(),
-  pids = [] :: list(),
+  pids = #{} :: list(),
   calls = [] :: list()
 }).
 
@@ -32,3 +32,11 @@
   timeout = 0 :: integer(),
   spawn = false :: boolean()
 }).
+
+-ifdef(EXPR_DEBUG).
+-define(DEBUG(Str), io:format(Str, [])).
+-define(DEBUG(Str, Arr), io:format(Str, Arr)).
+-else.
+-define(DEBUG(Str), noop).
+-define(DEBUG(Str, Arr), noop).
+-endif.

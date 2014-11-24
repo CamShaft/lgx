@@ -4,6 +4,9 @@
 
 -include("expr.hrl").
 
+-compile(inline).
+-compile({native, [o3]}).
+
 -define(PASSES, [
   fun to_records/1,
   fun mark_root/1,

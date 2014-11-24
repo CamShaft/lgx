@@ -3,6 +3,9 @@
 -export([loop/1]).
 -export([add/6]).
 
+-compile(inline).
+-compile({native, [o3]}).
+
 -include("expr.hrl").
 
 -define(IS_READY(Expr, State), Expr#expr.deps band State#state.completed =:= Expr#expr.deps).

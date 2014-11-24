@@ -11,6 +11,7 @@
 set_result(Value, #expr{id = ID}, State) ->
   set_result(Value, ID, State);
 set_result(Value, ID, State = #state{values = Values, completed = Completed, waiting = Waiting}) when is_integer(ID) ->
+  ?DEBUG("setting result ~p = ~p~n", [ID, Value]),
   Values2 = maps:put(ID, Value, Values),
   State#state{values = Values2, completed = Completed bor ID, waiting = Waiting bxor ID}.
 
