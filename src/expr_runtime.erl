@@ -8,11 +8,16 @@
 -include("expr.hrl").
 
 execute(State, MapFun, Context) ->
-  loop(State#state{map = MapFun, context = Context, ref = make_ref()}).
+  preloop(State#state{map = MapFun, context = Context, ref = make_ref()}).
 
 %%%%%%%
 %% main loop.
 %%%%%%%
+
+preloop(State = #state{pending = []}) ->
+  loop(State);
+preloop(State) ->
+  exec(State, undefined).
 
 loop(State = #state{stalled = 100}) ->
   {error, infinite_loop, State};
@@ -29,20 +34,23 @@ loop(State) ->
         {error, Error, ReceiveState} ->
           handle_error(Error, ReceiveState);
         {ok, ReceiveState} ->
-          case expr_runtime_exec:loop(ReceiveState) of
-            {error, Error, ExecState} ->
-              handle_error(Error, ExecState);
-            %% we're done!
-            {ok, Value, ExecState} ->
-              {ok, Value, ExecState};
-            {ok, State = #state{iterations = Iter, stalled = Stalled}} ->
-              ?DEBUG("stalled iteration ~p~n", [Iter + 1]),
-              loop(State#state{iterations = Iter + 1, stalled = Stalled + 1});
-            {ok, ExecState = #state{iterations = Iter}} ->
-              ?DEBUG("iteration ~p~n", [Iter + 1]),
-              loop(ExecState#state{iterations = Iter + 1, stalled = 0})
-          end
+          exec(ReceiveState, State)
       end
+  end.
+
+exec(PrevState, InitialState) ->
+  case expr_runtime_exec:loop(PrevState) of
+    {error, Error, State} ->
+      handle_error(Error, State);
+    %% we're done!
+    {ok, Value, State} ->
+      {ok, Value, State};
+    {ok, InitialState = #state{iterations = Iter, stalled = Stalled}} ->
+      ?DEBUG("stalled iteration ~p~n", [Iter + 1]),
+      loop(InitialState#state{iterations = Iter + 1, stalled = Stalled + 1});
+    {ok, State = #state{iterations = Iter}} ->
+      ?DEBUG("iteration ~p~n", [Iter + 1]),
+      loop(State#state{iterations = Iter + 1, stalled = 0})
   end.
 
 %%%%%%%

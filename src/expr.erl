@@ -13,12 +13,22 @@ apply(Exprs, MapFun, Context) ->
 compile(Exprs) ->
   case expr_compiler:compile(Exprs) of
     {ok, Forms} ->
-      {ok, {?VERSION, Forms}};
+      %% get the ast ready for pending executions
+      case expr_runtime_pending:loop(Forms) of
+        {ok, PendingState} ->
+          {ok, {?VERSION, PendingState}};
+        {error, Error, State} ->
+          {error, Error, State};
+        {ok, Value, State} ->
+          {ok, {?VERSION, Value, State}}
+      end;
     Error ->
       Error
   end.
 
 execute({?VERSION, Forms}, MapFun, Context) ->
   expr_runtime:execute(Forms, MapFun, Context);
+execute({?VERSION, Value, State}, _, _) ->
+  {ok, Value, State};
 execute(Forms, _, _) ->
   {error, {unsupported_format, Forms}}.
