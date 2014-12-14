@@ -35,45 +35,26 @@ to_records([Expr|Exprs], Acc) ->
   Rec2 = Rec#expr{children = Children},
   to_records(Exprs, [Rec2|Acc]).
 
-child_records(#{type := Type}, undefined) when Type =:= list orelse Type =:= tuple orelse Type =:= call ->
+child_records(#{type := Type}, undefined) when Type =:= list orelse Type =:= tuple orelse Type =:= map orelse Type =:= call ->
   {ok, []};
-child_records(#{type := Type}, Children) when Type =:= list orelse Type =:= tuple orelse Type =:= call ->
-  Extracted = maps:to_list(Children),
-  Sorted = lists:sort(fun({A, _}, {B, _}) ->
-    A =< B
-  end, Extracted),
-  Values = [Val || {_Key, Val} <- Sorted],
-  to_records(Values, []);
-child_records(#{type := map}, Children) ->
-  KVs = [begin
-    {ok, [KV]} = to_records([#{type => tuple, line => get_value(line, Val), children => #{
-      0 => map_key_to_expr(Key),
-      1 => Val
-    }}], []),
-    KV
-  end || {Key, Val} <- maps:to_list(Children)],
-  {ok, KVs};
-child_records(#{type := 'cond'}, #{0 := Main, 1 := Truthy, 2 := Falsy}) ->
+child_records(#{type := Type}, Children) when Type =:= list orelse Type =:= tuple orelse Type =:= map orelse Type =:= call ->
+  to_records(Children, []);
+child_records(#{type := 'cond'}, [Main, Truthy, Falsy]) ->
   to_records([Main, Truthy, Falsy], []);
-child_records(#{type := 'cond'}, #{0 := Main, 1 := Truthy}) ->
+child_records(#{type := 'cond'}, [Main, Truthy]) ->
   to_records([Main, Truthy, #{type => literal, value => undefined}], []);
-child_records(#{type := comprehension}, #{assignment := #{type := assign, value := Var, children := #{0 := List}}, expression := Expression}) ->
+child_records(#{type := comprehension}, [#{type := assign, value := Var, children := [List]}, Expression]) ->
   {ok, [ListRec, ExprRec]} = to_records([
     List,
     Expression
   ], []),
   {ok, [ListRec, Var, ExprRec]};
-child_records(#{type := 'assign'}, #{0 := Expr}) ->
+child_records(#{type := 'assign'}, [Expr]) ->
   to_records([Expr], []);
 child_records(#{type := variable}, undefined) ->
   {ok, undefined};
 child_records(#{type := literal}, undefined) ->
   {ok, undefined}.
-
-map_key_to_expr(Key = #{type := _T}) ->
-  Key;
-map_key_to_expr(Key) ->
-  #{type => literal, value => Key}.
 
 to_record(Expr) ->
   #expr{

@@ -1,21 +1,45 @@
 #{
   type => map,
   line => 1,
-  children => #{
-    first_key => #{
-      type => literal,
-      value => first,
-      line => 2
+  children => [
+    #{
+      type => tuple,
+      children => [
+        #{
+          type => literal,
+          value => first_key
+        },
+        #{
+          type => literal,
+          value => first
+        }
+      ]
     },
-    second_key => #{
-      type => literal,
-      value => second,
-      line => 3
+    #{
+      type => tuple,
+      children => [
+        #{
+          type => literal,
+          value => second_key
+        },
+        #{
+          type => literal,
+          value => second
+        }
+      ]
     },
-    third_key => #{
-      type => literal,
-      value => third,
-      line => 4
+    #{
+      type => tuple,
+      children => [
+        #{
+          type => literal,
+          value => third_key
+        },
+        #{
+          type => literal,
+          value => third
+        }
+      ]
     }
-  }
+  ]
 }.

@@ -2,26 +2,26 @@
   type => assign,
   line => 1,
   value => 'MyVar',
-  children => #{
-    0 => #{
+  children => [
+    #{
       type => literal,
       value => <<"value">>,
       line => 1
     }
-  }
+  ]
 }.
 #{
   type => list,
-  children => #{
-    0 => #{
+  children => [
+    #{
       type => variable,
       value => 'MyVar',
       line => 2
     },
-    1 => #{
+    #{
       type => variable,
       value => 'MyVar',
       line => 2
     }
-  }
+  ]
 }.

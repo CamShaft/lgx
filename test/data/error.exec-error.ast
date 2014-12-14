@@ -1,10 +1,10 @@
 #{
   type => call,
   value => {module, error},
-  children => #{
-    0 => #{
+  children => [
+    #{
       type => literal,
       value => this_is_an_error
     }
-  }
+  ]
 }.

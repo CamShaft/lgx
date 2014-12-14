@@ -1,50 +1,50 @@
 #{
   type => comprehension,
-  children => #{
-    assignment => #{
+  children => [
+    #{
       type => assign,
       value => 'User',
-      children => #{
-        0 => #{
+      children => [
+        #{
           type => list,
-          children => #{
-            0 => #{
+          children => [
+            #{
               type => literal,
               value => <<"1">>
             },
-            1 => #{
+            #{
               type => literal,
               value => <<"2">>
             },
-            2 => #{
+            #{
               type => literal,
               value => <<"3">>
             },
-            3 => #{
+            #{
               type => literal,
               value => <<"4">>
             },
-            4 => #{
+            #{
               type => literal,
               value => <<"5">>
             }
-          }
+          ]
         }
-      }
+      ]
     },
-    expression => #{
+    #{
       type => call,
       value => {maps, get},
-      children => #{
-        0 => #{
+      children => [
+        #{
           type => literal,
           value => name
         },
-        1 => #{
+        #{
           type => variable,
           value => 'User'
         }
-      }
+      ]
     }
-  }
+  ]
 }.

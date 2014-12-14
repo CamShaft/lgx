@@ -63,20 +63,20 @@ Every form and/or has a `type` field. It also should set `line` to get helpful e
 ```erlang
 #{
   type => list,
-  children => #{
-    0 => #{
+  children => [
+    #{
       type => literal,
       value => first
     },
-    1 => #{
+    #{
       type => literal,
       value => second
     },
-    2 => #{
+    #{
       type => literal,
       value => third
     }
-  }
+  ]
 }
 ```
 
@@ -85,20 +85,20 @@ Every form and/or has a `type` field. It also should set `line` to get helpful e
 ```erlang
 #{
   type => tuple,
-  children => #{
-    0 => #{
+  children => [
+    #{
       type => literal,
       value => first
     },
-    1 => #{
+    #{
       type => literal,
       value => second
     },
-    2 => #{
+    #{
       type => literal,
       value => third
     }
-  }
+  ]
 }
 ```
 
@@ -107,20 +107,47 @@ Every form and/or has a `type` field. It also should set `line` to get helpful e
 ```erlang
 #{
   type => map,
-  children => #{
-    first_key => #{
-      type => literal,
-      value => first
+  children => [
+    #{
+      type => tuple,
+      children => [
+        #{
+          type => literal,
+          value => first_key
+        },
+        #{
+          type => literal,
+          value => first_value
+        }
+      ]
     },
-    second_key => #{
-      type => literal,
-      value => second
+    #{
+      type => tuple,
+      children => [
+        #{
+          type => literal,
+          value => second_key
+        },
+        #{
+          type => literal,
+          value => second_value
+        }
+      ]
     },
-    third_key => #{
-      type => literal,
-      value => third
+    #{
+      type => tuple,
+      children => [
+        #{
+          type => literal,
+          value => third_key
+        },
+        #{
+          type => literal,
+          value => third_value
+        }
+      ]
     }
-  }
+  ]
 }
 ```
 
@@ -132,20 +159,20 @@ Every form and/or has a `type` field. It also should set `line` to get helpful e
 #{
   type => call,
   value => {module, function},
-  children => #{
-    0 => #{
+  children => [
+    #{
       type => literal,
       value => first_argument
     },
-    1 => #{
+    #{
       type => literal,
       value => second_argument
     }
-    2 => #{
+    #{
       type => literal,
       value => third_argument
     }
-  }
+  ]
 }
 ```
 
@@ -154,23 +181,23 @@ Every form and/or has a `type` field. It also should set `line` to get helpful e
 ```erlang
 #{
   type => 'cond',
-  children => #{
+  children => [
     %% should return 'true' or 'false'
-    0 => #{
+    #{
       type => call,
       value => {module, is_valid}
     },
     %% only called if 'true'
-    1 => #{
+    #{
       type => call,
       value => {module, truths}
     },
     %% only called if 'false'
-    2 => #{
+    #{
       type => call,
       value => {module, falsities}
     }
-  }
+  ]
 }
 ```
 
@@ -179,19 +206,19 @@ or
 ```erlang
 #{
   type => 'cond',
-  children => #{
+  children => [
     %% should return 'true' or 'false'
-    0 => #{
+    #{
       type => call,
       value => {module, is_valid}
     },
     %% only called if 'true'
-    1 => #{
+    #{
       type => call,
       value => {module, truths}
     }
     %% otherwise returns 'undefined'
-  }
+  ]
 }
 ```
 
@@ -200,53 +227,53 @@ or
 ```erlang
 #{
   type => comprehension,
-  children => #{
-    assignment => #{
+  children => [
+    #{
       type => assign,
       value => 'User',
-      children => #{
-        0 => #{
+      children => [
+        #{
           type => list,
-          children => #{
-            0 => #{
+          children => [
+            #{
               type => literal,
               value => <<"1">>
             },
-            1 => #{
+            #{
               type => literal,
               value => <<"2">>
             },
-            2 => #{
+            #{
               type => literal,
               value => <<"3">>
             },
-            3 => #{
+            #{
               type => literal,
               value => <<"4">>
             },
-            4 => #{
+            #{
               type => literal,
               value => <<"5">>
             }
-          }
+          ]
         }
-      }
+      ]
     },
-    expression => #{
+    #{
       type => call,
       value => {maps, get},
-      children => #{
-        0 => #{
+      children => [
+        #{
           type => literal,
           value => name
         },
-        1 => #{
+        #{
           type => variable,
           value => 'User'
         }
-      }
+      ]
     }
-  }
+  ]
 }.
 ```
 
@@ -258,12 +285,12 @@ or
 #{
   type => assign,
   value => 'MyVariable',
-  children => #{
-    0 => #{
+  children => [
+    #{
       type => literal,
       value => <<"my value">>
     }
-  }
+  ]
 }
 ```
 
