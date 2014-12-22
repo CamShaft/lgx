@@ -1,4 +1,4 @@
 language: erlang
-script: make test
+script: make test && make perfs
 otp_release:
   - 17.0
