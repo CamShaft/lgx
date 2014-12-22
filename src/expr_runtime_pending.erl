@@ -171,13 +171,13 @@ add(Expr, NewChildren, [Child = #expr{type = literal}|Children], Rest, Pending, 
 
 %% resolve all of the needed arguments
 
-resolve_values([], Acc, _) ->
-  {ok, lists:reverse(Acc)};
-resolve_values([Child|Children], Acc, Values) when is_integer(Child) ->
+resolve_values([#expr{type = literal, value = Value}|Children], Acc, Values) ->
+  resolve_values(Children, [Value|Acc], Values);
+resolve_values([Child|Children], Acc, Values) ->
   Value = maps:get(Child, Values),
   resolve_values(Children, [Value|Acc], Values);
-resolve_values([#expr{type = literal, value = Value}|Children], Acc, Values) ->
-  resolve_values(Children, [Value|Acc], Values).
+resolve_values([], Acc, _) ->
+  {ok, lists:reverse(Acc)}.
 
 alias_value(Value, Expr, _, _Pending, _Values, _Calls, _Completed, _Waiting, _Counter, _Vars) when Expr#expr.is_root ->
   {ok, Value};
