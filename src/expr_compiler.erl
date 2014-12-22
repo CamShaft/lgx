@@ -11,6 +11,7 @@
   fun to_records/1,
   fun mark_root/1,
   fun init_state/1,
+  fun verify_variables/1,
   fun rename_variables/1
 ]).
 
@@ -76,6 +77,8 @@ get_value(Key, Map) ->
       undefined
   end.
 
+mark_root([]) ->
+  {ok, [#expr{is_root = true, type = literal, value = undefined}]};
 mark_root(Exprs) ->
   [Expr|Rest] = lists:reverse(Exprs),
   {ok, lists:reverse([Expr#expr{is_root = true}|Rest])}.
@@ -88,7 +91,13 @@ init_state(Exprs) ->
 
 set_vars(#expr{type = assign, value = Var, children = [Expr]}, State) ->
   Vars = State#state.vars,
-  State#state{vars = maps:put(Var, Expr, Vars)}.
+  State#state{vars = maps:put(Var, Expr, Vars)};
+set_vars(_Expr, State) ->
+  State.
+
+verify_variables(State) ->
+  %% TODO
+  {ok, State}.
 
 rename_variables(State) ->
   Vars = State#state.vars,
@@ -97,8 +106,8 @@ rename_variables(State) ->
   {ok, State3}.
 
 rename_variables(Key, _Val, {Mappings, State}) ->
-  {ID, State2} = expr_util:next_id(State),
-  {maps:put(Key, ID, Mappings), State2}.
+  {ID, Counter2} = expr_util:next_id(State#state.counter),
+  {maps:put(Key, ID, Mappings), State#state{counter = Counter2}}.
 
 replace_variables(Var, ID, State) ->
   Expr = maps:get(Var, State#state.vars),

@@ -48,7 +48,7 @@ loop([Expr = #expr{value = {Mod, Fun}, children = Args, is_root = IsRoot}|Rest],
     {ok, Value} when IsRoot ->
       {ok, Value, State#state{cache_hits = Hits + 1}};
     {ok, Value} ->
-      State2 = expr_util:set_result(Value, Expr, State#state{cache_hits = Hits + 1}),
+      State2 = set_result(Value, Expr, State#state{cache_hits = Hits + 1}, Cache),
       loop(Rest, Calls, State2);
     _ ->
       RefKey = ?REF(Expr, State),
@@ -64,16 +64,24 @@ loop([Expr = #expr{value = {Mod, Fun}, children = Args, is_root = IsRoot}|Rest],
           {ok, Value, State};
         {ok, Value} ->
           Cache2 = maps:put(CacheKey, Value, Cache),
-          State2 = expr_util:set_result(Value, Expr, State#state{cache = Cache2}),
+          State2 = set_result(Value, Expr, State, Cache2),
           loop(Rest, Calls, State2);
         {ok, Value, Context2} ->
           Cache2 = maps:put(CacheKey, Value, Cache),
-          State2 = expr_util:set_result(Value, Expr, State#state{cache = Cache2, context = Context2}),
+          State2 = set_result(Value, Expr, State, Cache2, Context2),
           loop(Rest, Calls, State2);
         {error, Error} ->
           {error, Error, State}
       end
   end.
+
+set_result(Value, Expr, State = #state{values = Values, completed = Completed, waiting = Waiting}, Cache) ->
+  {Values2, Completed2, Waiting2} = expr_util:set_result(Value, Expr, Values, Completed, Waiting),
+  State#state{cache = Cache, values = Values2, completed = Completed2, waiting = Waiting2}.
+
+set_result(Value, Expr, State = #state{values = Values, completed = Completed, waiting = Waiting}, Cache, Context) ->
+  {Values2, Completed2, Waiting2} = expr_util:set_result(Value, Expr, Values, Completed, Waiting),
+  State#state{cache = Cache, values = Values2, completed = Completed2, waiting = Waiting2, context = Context}.
 
 exec_async(Lookup, Timeout, Mod, Fun, Args, Context, Parent, Ref, Attrs) when is_integer(Timeout) andalso Timeout > 0 ->
   Tref = timer:kill_after(Timeout),

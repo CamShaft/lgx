@@ -2,22 +2,24 @@
 
 -include("expr.hrl").
 
--export([set_result/3]).
+-export([set_result/5]).
 -export([next_id/1]).
 -export([replace_variable/4]).
 
 %% TODO clear the pid
 %% set the value for the id
-set_result(Value, #expr{id = ID}, State) ->
-  set_result(Value, ID, State);
-set_result(Value, ID, State = #state{values = Values, completed = Completed, waiting = Waiting}) when is_integer(ID) ->
+set_result(Value, #expr{id = ID}, Values, Completed, Waiting) ->
+  set_result(Value, ID, Values, Completed, Waiting);
+set_result(Value, ID, Values, Completed, Waiting) when is_integer(ID) ->
   ?DEBUG("setting result ~p = ~p~n", [ID, Value]),
   Values2 = maps:put(ID, Value, Values),
-  State#state{values = Values2, completed = Completed bor ID, waiting = Waiting bxor ID}.
+  {Values2, Completed bor ID, Waiting bxor ID}.
 
 %% return an id (2^n)
-next_id(State = #state{counter = Counter}) ->
-  {trunc(math:pow(2, Counter)), State#state{counter = Counter + 1}}.
+next_id(#state{counter = Counter}) ->
+  next_id(Counter);
+next_id(Counter) ->
+  {trunc(math:pow(2, Counter)), Counter + 1}.
 
 replace_variable(_, _, [], Acc) ->
   {ok, lists:reverse(Acc)};
