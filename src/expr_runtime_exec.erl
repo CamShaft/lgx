@@ -4,7 +4,6 @@
 %% private
 -export([exec_async/9]).
 
--compile(inline).
 -compile({native, [o3]}).
 
 -include("expr.hrl").

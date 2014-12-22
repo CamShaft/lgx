@@ -19,7 +19,7 @@ fprof.cgrind: deps app ebin/benchmarks_test.beam
 	  -noshell \
 	  -pa ebin \
 	  -pa deps/*/ebin \
-	  -eval "fprof:start(), fprof:apply(benchmarks_test, execute, []), fprof:profile()." \
+	  -eval "benchmarks_test:execute(), fprof:start(), fprof:apply(benchmarks_test, execute, []), fprof:profile()." \
 	  -s init stop
 	@erlgrind fprof.trace
 

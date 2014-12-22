@@ -2,7 +2,6 @@
 
 -export([loop/1]).
 
--compile(inline).
 -compile({native, [o3]}).
 
 -include("expr.hrl").

@@ -4,7 +4,6 @@
 
 -include("expr.hrl").
 
--compile(inline).
 -compile({native, [o3]}).
 
 -define(PASSES, [
