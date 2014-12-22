@@ -32,3 +32,8 @@ execute({?VERSION, Value, State}, _, _) ->
   {ok, Value, State};
 execute(Forms, _, _) ->
   {error, {unsupported_format, Forms}}.
+
+-ifdef(PERF).
+horse_execute() ->
+    horse:repeat(2000, benchmarks_test:execute()).
+-endif.

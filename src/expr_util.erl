@@ -16,8 +16,6 @@ set_result(Value, ID, Values, Completed, Waiting) when is_integer(ID) ->
   {Values2, Completed bor ID, Waiting bxor ID}.
 
 %% return an id (2^n)
-next_id(#state{counter = Counter}) ->
-  next_id(Counter);
 next_id(Counter) ->
   {trunc(math:pow(2, Counter)), Counter + 1}.
 

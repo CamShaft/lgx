@@ -10,9 +10,19 @@ deps/horse:
 	$(MAKE) -C $(DEPS_DIR)/horse
 
 perfs: ERLC_OPTS += -DPERF=1 +'{parse_transform, horse_autoexport}'
-perfs: clean deps deps/horse app
+perfs: clean deps deps/horse app ebin/benchmarks_test.beam
 	$(gen_verbose) erl -noshell -pa ebin deps/horse/ebin \
 		-eval 'horse:app_perf($(PROJECT)), init:stop().'
+
+fprof.cgrind: deps app ebin/benchmarks_test.beam
+	@erl \
+	  -noshell \
+	  -pa ebin \
+	  -pa deps/*/ebin \
+	  -eval "fprof:start(), fprof:apply(benchmarks_test, execute, []), fprof:profile()." \
+	  -s init stop
+	@erlgrind fprof.trace
+
 
 test: eunit
 
