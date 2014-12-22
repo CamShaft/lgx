@@ -8,7 +8,7 @@
 
 %% TODO clear the pid
 %% set the value for the id
-set_result(Value, #expr{id = ID}, Values, Completed, Waiting) ->
+set_result(Value, ID, Values, Completed, Waiting) ->
   ?DEBUG("setting result ~p = ~p~n", [ID, Value]),
   Values2 = maps:put(ID, Value, Values),
   {Values2, Completed bor ID, Waiting bxor ID}.

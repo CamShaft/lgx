@@ -35,8 +35,8 @@ loop([#expr{type = literal, value = Value, is_root = true}|_], _Pending, _Values
   {ok, Value};
 
 %% set the literal value to the id in #state.values
-loop([Expr = #expr{type = literal, value = Value}|Rest], Pending, Values, Calls, Completed, Waiting, Counter, Vars) ->
-  {Values2, Completed2, Waiting2} = expr_util:set_result(Value, Expr, Values, Completed, Waiting),
+loop([#expr{id = ID, type = literal, value = Value}|Rest], Pending, Values, Calls, Completed, Waiting, Counter, Vars) ->
+  {Values2, Completed2, Waiting2} = expr_util:set_result(Value, ID, Values, Completed, Waiting),
   loop(Rest, Pending, Values2, Calls, Completed2, Waiting2, Counter, Vars);
 
 %%%
@@ -181,8 +181,8 @@ resolve_values([], Acc, _) ->
 
 alias_value(Value, Expr, _, _Pending, _Values, _Calls, _Completed, _Waiting, _Counter, _Vars) when Expr#expr.is_root ->
   {ok, Value};
-alias_value(Value, Expr, Rest, Pending, Values, Calls, Completed, Waiting, Counter, Vars) ->
-  {Values2, Completed2, Waiting2} = expr_util:set_result(Value, Expr, Values, Completed, Waiting),
+alias_value(Value, #expr{id = ID}, Rest, Pending, Values, Calls, Completed, Waiting, Counter, Vars) ->
+  {Values2, Completed2, Waiting2} = expr_util:set_result(Value, ID, Values, Completed, Waiting),
   loop(Rest, Pending, Values2, Calls, Completed2, Waiting2, Counter, Vars).
 
 add_comprehension([], _, _, Acc) ->

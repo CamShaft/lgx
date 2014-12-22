@@ -8,79 +8,79 @@
 
 -include("expr.hrl").
 
--define(REF(Expr, State), {State#state.ref, Expr#expr.id}).
+-define(REF(ID, StateRef), {StateRef, ID}).
 
 loop(State = #state{calls = []}) ->
   {ok, State};
-loop(State = #state{calls = Calls}) ->
-  loop(Calls, [], State).
+loop(State = #state{calls = Calls,
+                    cache = Cache,
+                    cache_hits = Hits,
+                    map = Lookup,
+                    context = Context,
+                    values = Values,
+                    completed = Completed,
+                    waiting = Waiting,
+                    pids = Pids,
+                    ref = StateRef}) ->
+  loop(Calls, [], Cache, Hits, Lookup, Context, Values, Completed, Waiting, Pids, StateRef, State).
 
-%% TODO async functions
-loop([], Calls, State) ->
-  {ok, State#state{calls = Calls}};
+loop([], Calls, Cache, Hits, _Lookup, Context, Values, Completed, Waiting, Pids, _StateRef, State) ->
+  {ok, State#state{calls = Calls,
+                   cache = Cache,
+                   cache_hits = Hits,
+                   context = Context,
+                   values = Values,
+                   completed = Completed,
+                   waiting = Waiting,
+                   pids = Pids}};
 
-loop([Expr = #expr{spawn = Spawn, timeout = Timeout}|Rest], Calls, State) when Spawn orelse Timeout > 0 ->
-  Lookup = State#state.map,
-  Context = State#state.context,
-  {Mod, Fun} = Expr#expr.value,
-  Args = Expr#expr.children,
-  Attrs = Expr#expr.attrs,
-
+loop([#expr{id = ID, value = {Mod, Fun}, children = Args, attrs = Attrs, spawn = Spawn, timeout = Timeout}|Rest],
+      Calls, Cache, Hits, Lookup, Context, Values, Completed, Waiting, Pids, StateRef, State) when Spawn orelse Timeout > 0 ->
   %% TODO lookup in cache
-  _CacheKey = {Mod, Fun, Args},
+  %% _CacheKey = {Mod, Fun, Args},
 
-  RefKey = ?REF(Expr, State),
+  RefKey = ?REF(ID, StateRef),
 
   {_Pid, Ref} = spawn_monitor(?MODULE, exec_async, [Lookup, Timeout, Mod, Fun, Args, Context, self(), RefKey, Attrs]),
-  State2 = add_pid(RefKey, Ref, State),
-  loop(Rest, Calls, State2);
+  Pids2 = maps:put(RefKey, Ref, Pids),
+  loop(Rest, Calls, Cache, Hits, Lookup, Context, Values, Completed, Waiting, Pids2, StateRef, State);
 
-loop([Expr = #expr{value = {Mod, Fun}, children = Args, is_root = IsRoot}|Rest],
-           Calls,
-           State = #state{cache = Cache, map = Lookup, context = Context}) ->
+loop([#expr{id = ID, value = {Mod, Fun}, children = Args, attrs = Attrs, is_root = IsRoot}|Rest],
+      Calls, Cache, Hits, Lookup, Context, Values, Completed, Waiting, Pids, StateRef, State) ->
 
   CacheKey = {Mod, Fun, Args},
-  Hits = State#state.cache_hits,
   case maps:find(CacheKey, Cache) of
     % {ok, {'__PENDING__'}} -> % happens when a function is async
     %  TODO
     {ok, Value} when IsRoot ->
       {ok, Value, State#state{cache_hits = Hits + 1}};
     {ok, Value} ->
-      State2 = set_result(Value, Expr, State#state{cache_hits = Hits + 1}, Cache),
-      loop(Rest, Calls, State2);
+      {Values2, Completed2, Waiting2} = expr_util:set_result(Value, ID, Values, Completed, Waiting),
+      loop(Rest, Calls, Cache, Hits + 1, Lookup, Context, Values2, Completed2, Waiting2, Pids, StateRef, State);
     _ ->
-      RefKey = ?REF(Expr, State),
-      case Lookup(Mod, Fun, Args, Context, self(), RefKey, Expr#expr.attrs) of
+      RefKey = ?REF(ID, State),
+      case Lookup(Mod, Fun, Args, Context, self(), RefKey, Attrs) of
         {ok, Pid} when is_pid(Pid) ->
           Ref = monitor(process, Pid),
-          State2 = add_pid(RefKey, Ref, State),
-          loop(Rest, Calls, State2);
+          Pids2 = maps:put(RefKey, Ref, Pids),
+          loop(Rest, Calls, Cache, Hits, Lookup, Context, Values, Completed, Waiting, Pids2, StateRef, State);
         {ok, Ref} when is_reference(Ref) ->
-          State2 = add_pid(RefKey, Ref, State),
-          loop(Rest, Calls, State2);
+          Pids2 = maps:put(RefKey, Ref, Pids),
+          loop(Rest, Calls, Cache, Hits, Lookup, Context, Values, Completed, Waiting, Pids2, StateRef, State);
         {ok, Value} when IsRoot ->
           {ok, Value, State};
         {ok, Value} ->
           Cache2 = maps:put(CacheKey, Value, Cache),
-          State2 = set_result(Value, Expr, State, Cache2),
-          loop(Rest, Calls, State2);
+          {Values2, Completed2, Waiting2} = expr_util:set_result(Value, ID, Values, Completed, Waiting),
+          loop(Rest, Calls, Cache2, Hits, Lookup, Context, Values2, Completed2, Waiting2, Pids, StateRef, State);
         {ok, Value, Context2} ->
           Cache2 = maps:put(CacheKey, Value, Cache),
-          State2 = set_result(Value, Expr, State, Cache2, Context2),
-          loop(Rest, Calls, State2);
+          {Values2, Completed2, Waiting2} = expr_util:set_result(Value, ID, Values, Completed, Waiting),
+          loop(Rest, Calls, Cache2, Hits, Lookup, Context2, Values2, Completed2, Waiting2, Pids, StateRef, State);
         {error, Error} ->
           {error, Error, State}
       end
   end.
-
-set_result(Value, Expr, State = #state{values = Values, completed = Completed, waiting = Waiting}, Cache) ->
-  {Values2, Completed2, Waiting2} = expr_util:set_result(Value, Expr, Values, Completed, Waiting),
-  State#state{cache = Cache, values = Values2, completed = Completed2, waiting = Waiting2}.
-
-set_result(Value, Expr, State = #state{values = Values, completed = Completed, waiting = Waiting}, Cache, Context) ->
-  {Values2, Completed2, Waiting2} = expr_util:set_result(Value, Expr, Values, Completed, Waiting),
-  State#state{cache = Cache, values = Values2, completed = Completed2, waiting = Waiting2, context = Context}.
 
 exec_async(Lookup, Timeout, Mod, Fun, Args, Context, Parent, Ref, Attrs) when is_integer(Timeout) andalso Timeout > 0 ->
   Tref = timer:kill_after(Timeout),
@@ -104,6 +104,3 @@ exec_async(Lookup, Tref, Mod, Fun, Args, Context, Parent, Ref, Attrs) ->
     _ ->
       {error, {invalid_return, Result}, Ref}
   end.
-
-add_pid(RefKey, Ref, State) ->
-  State#state{pids = maps:put(RefKey, Ref, State#state.pids)}.
