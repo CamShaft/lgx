@@ -3,6 +3,9 @@
 -export([apply/3]).
 -export([compile/1]).
 -export([execute/3]).
+-export([context/1]).
+
+-include("expr.hrl").
 
 -define(VERSION, v2).
 
@@ -32,6 +35,9 @@ execute({?VERSION, Value, State}, _, _) ->
   {ok, Value, State};
 execute(Forms, _, _) ->
   {error, {unsupported_format, Forms}}.
+
+context(#state{context = Context}) ->
+  Context.
 
 -ifdef(PERF).
 horse_execute() ->
