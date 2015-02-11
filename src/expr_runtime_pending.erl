@@ -115,10 +115,14 @@ loop([Expr = #expr{type = comprehension, tmp = [_, Var, ChildExpr], status = wai
       Pending, Values, Calls, Completed, Waiting, Counter, Vars) when ?IS_READY(Expr, Completed) ->
   %% TODO replace with  {ok, [List]} = resolve_values(Expr#expr.children, [], State#state.values),
   List = maps:get(Expr#expr.deps, Values),
-  {ok, Children} = add_comprehension(List, Var, ChildExpr, []),
-  {Rest2, [Expr2|Pending2], Waiting2, Counter2} = add(Expr#expr{deps = 0}, [], Children, Rest, Pending, Waiting, Counter, Vars),
-  Expr3 = Expr2#expr{status = iterating},
-  loop(Rest2, [Expr3|Pending2], Values, Calls, Completed, Waiting2, Counter2, Vars);
+  case add_comprehension(List, Var, ChildExpr, []) of
+    {error, non_list} ->
+      alias_value(undefined, Expr, Rest, Pending, Values, Calls, Completed, Waiting, Counter, Vars);
+    {ok, Children} ->
+      {Rest2, [Expr2|Pending2], Waiting2, Counter2} = add(Expr#expr{deps = 0}, [], Children, Rest, Pending, Waiting, Counter, Vars),
+      Expr3 = Expr2#expr{status = iterating},
+      loop(Rest2, [Expr3|Pending2], Values, Calls, Completed, Waiting2, Counter2, Vars)
+  end;
 
 %% set the result of the comprehension
 loop([Expr = #expr{type = comprehension, status = iterating}|Rest], Pending, Values, Calls, Completed, Waiting, Counter, Vars) when ?IS_READY(Expr, Completed) ->
@@ -196,4 +200,6 @@ add_comprehension([], _, _, Acc) ->
 add_comprehension([Value|Rest], Var, Expr, Acc) ->
   Literal = #expr{type = literal, value = Value},
   {ok, [Expr2]} = expr_util:replace_variable(Var, Literal, [Expr], []),
-  add_comprehension(Rest, Var, Expr, [Expr2|Acc]).
+  add_comprehension(Rest, Var, Expr, [Expr2|Acc]);
+add_comprehension(_, _, _, _) ->
+  {error, non_list}.
