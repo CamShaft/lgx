@@ -78,12 +78,14 @@ loop([Expr = #expr{type = 'cond', status = added, children = [Cond|_] = Children
 loop([Expr = #expr{type = 'cond', status = waiting}|Rest], Pending, Values, Calls, Completed, Waiting, Counter, Vars) when ?IS_READY(Expr, Completed) ->
   {ok, [Value]} = resolve_values(Expr#expr.children, [], Values),
   Branch = case Value of
-    true ->
-      lists:nth(2, Expr#expr.tmp);
     false ->
       lists:nth(3, Expr#expr.tmp);
-    Arg ->
-      {error, {cond_badarg, Arg}}
+    undefined ->
+      lists:nth(3, Expr#expr.tmp);
+    nil ->
+      lists:nth(3, Expr#expr.tmp);
+    _ ->
+      lists:nth(2, Expr#expr.tmp)
   end,
   case Branch of
     {error, _} = Error ->
