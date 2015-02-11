@@ -1,0 +1,10 @@
+#{
+  type => variable,
+  value => 'other-var',
+  line => 1
+}.
+#{
+  type => variable,
+  value => 'undefined-variable',
+  line => 2
+}.

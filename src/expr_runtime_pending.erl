@@ -169,7 +169,11 @@ add(Expr = #expr{deps = Deps}, NewChildren, [Child = #expr{type = Type}|Children
 
 %% pass on the literals
 add(Expr, NewChildren, [Child = #expr{type = literal}|Children], Rest, Pending, Waiting, Counter, Vars) ->
-  add(Expr, [Child|NewChildren], Children, Rest, Pending, Waiting, Counter, Vars).
+  add(Expr, [Child|NewChildren], Children, Rest, Pending, Waiting, Counter, Vars);
+
+%% catch any missing variable usages
+add(Expr, _NewChildren, _Children, _Rest, _Pending, _Waiting, _Counter, _Vars) ->
+  {error, {undefined_variable, Expr#expr.value}}.
 
 %% resolve all of the needed arguments
 
