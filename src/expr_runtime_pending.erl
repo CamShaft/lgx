@@ -52,7 +52,7 @@ loop([Expr = #expr{type = tuple, status = waiting}|Rest], Pending, Values, Calls
   alias_value(list_to_tuple(Children), Expr, Rest, Pending, Values, Calls, Completed, Waiting, Counter, Vars);
 
 loop([Expr = #expr{type = map, status = waiting}|Rest], Pending, Values, Calls, Completed, Waiting, Counter, Vars) when ?IS_READY(Expr, Completed) ->
-  {ok, Children} = resolve_values(Expr#expr.children, [], Values),
+  {ok, Children} = resolve_map_values(Expr#expr.children, [], Values),
   alias_value(maps:from_list(Children), Expr, Rest, Pending, Values, Calls, Completed, Waiting, Counter, Vars);
 
 %%%
@@ -181,12 +181,26 @@ add(Expr, _NewChildren, _Children, _Rest, _Pending, _Waiting, _Counter, _Vars) -
 
 %% resolve all of the needed arguments
 
-resolve_values([#expr{type = literal, value = Value}|Children], Acc, Values) ->
-  resolve_values(Children, [Value|Acc], Values);
+resolve_values([#expr{type = literal, value = Child}|Children], Acc, Values) ->
+  resolve_values(Children, [Child|Acc], Values);
 resolve_values([Child|Children], Acc, Values) ->
   Value = maps:get(Child, Values),
   resolve_values(Children, [Value|Acc], Values);
 resolve_values([], Acc, _) ->
+  {ok, lists:reverse(Acc)}.
+
+resolve_map_values([#expr{type = literal, value = {_, undefined}}|Children], Acc, Values) ->
+  resolve_map_values(Children, Acc, Values);
+resolve_map_values([#expr{type = literal, value = Value}|Children], Acc, Values) ->
+  resolve_map_values(Children, [Value|Acc], Values);
+resolve_map_values([Child|Children], Acc, Values) ->
+  case maps:get(Child, Values) of
+    {_, undefined} ->
+      resolve_map_values(Children, Acc, Values);
+    Value ->
+      resolve_map_values(Children, [Value|Acc], Values)
+  end;
+resolve_map_values([], Acc, _) ->
   {ok, lists:reverse(Acc)}.
 
 alias_value(Value, Expr, _, _Pending, _Values, _Calls, _Completed, _Waiting, _Counter, _Vars) when Expr#expr.is_root ->
