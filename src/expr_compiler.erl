@@ -65,6 +65,7 @@ to_record(Expr) ->
     spawn = get_value(spawn, Expr),
     timeout = get_value(timeout, Expr),
     silent = get_value(silent, Expr),
+    native = get_value(native, Expr),
     children = get_value(children, Expr)
   }.
 

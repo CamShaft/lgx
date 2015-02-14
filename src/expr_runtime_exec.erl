@@ -45,6 +45,16 @@ loop([#expr{id = ID, value = {Mod, Fun}, children = Args, attrs = Attrs, spawn =
   Pids2 = maps:put(RefKey, Ref, Pids),
   loop(Rest, Calls, Cache, Hits, Lookup, Context, Values, Completed, Waiting, Pids2, StateRef, State);
 
+loop([#expr{native = true, id = ID, value = {Mod, Fun}, children = Args, is_root = IsRoot}|Rest],
+      Calls, Cache, Hits, Lookup, Context, Values, Completed, Waiting, Pids, StateRef, State) ->
+  case apply(Mod, Fun, Args) of
+    Value when IsRoot ->
+      {ok, Value, State#state{cache_hits = Hits + 1, context = Context}};
+    Value ->
+      {Values2, Completed2, Waiting2} = expr_util:set_result(Value, ID, Values, Completed, Waiting),
+      loop(Rest, Calls, Cache, Hits + 1, Lookup, Context, Values2, Completed2, Waiting2, Pids, StateRef, State)
+  end;
+
 loop([#expr{id = ID, value = {Mod, Fun}, children = Args, attrs = Attrs, is_root = IsRoot}|Rest],
       Calls, Cache, Hits, Lookup, Context, Values, Completed, Waiting, Pids, StateRef, State) ->
 
@@ -53,7 +63,7 @@ loop([#expr{id = ID, value = {Mod, Fun}, children = Args, attrs = Attrs, is_root
     % {ok, {'__PENDING__'}} -> % happens when a function is async
     %  TODO
     {ok, Value} when IsRoot ->
-      {ok, Value, State#state{cache_hits = Hits + 1}};
+      {ok, Value, State#state{cache_hits = Hits + 1, context = Context}};
     {ok, Value} ->
       {Values2, Completed2, Waiting2} = expr_util:set_result(Value, ID, Values, Completed, Waiting),
       loop(Rest, Calls, Cache, Hits + 1, Lookup, Context, Values2, Completed2, Waiting2, Pids, StateRef, State);

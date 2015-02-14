@@ -1,0 +1,8 @@
+#{
+  type => call,
+  native => true,
+  value => {erlang, hd},
+  children => [
+    #{type => literal, value => [1,2,3,4,5]}
+  ]
+}.

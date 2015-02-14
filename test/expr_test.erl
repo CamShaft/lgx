@@ -63,7 +63,7 @@ expr_error(Test) ->
       Error
   end,
 
-  {error, _Error, _State} = expr:apply(Forms, fun resolve/7, Context).
+  catch expr:apply(Forms, fun resolve/7, Context).
 
 resolve(_Mod, error, [Error], _Context, _Sender, _Ref, _Attrs) ->
   {error, Error};
