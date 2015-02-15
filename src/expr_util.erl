@@ -2,12 +2,16 @@
 
 -include("expr.hrl").
 
+-export([set_result/3]).
 -export([set_result/5]).
 -export([next_id/1]).
 -export([replace_variable/4]).
 
 %% TODO clear the pid
 %% set the value for the id
+set_result(Value, ID, State = #state{values = Values, completed = Completed, waiting = Waiting}) ->
+  {Values2, Completed2, Waiting2} = set_result(Value, ID, Values, Completed, Waiting),
+  State#state{values = Values2, completed = Completed2, waiting = Waiting2}.
 set_result(Value, ID, Values, Completed, Waiting) ->
   ?DEBUG("setting result ~p = ~p~n", [ID, Value]),
   Values2 = maps:put(ID, Value, Values),
